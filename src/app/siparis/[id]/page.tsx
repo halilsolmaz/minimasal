@@ -6,15 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BRAND, PACKAGES } from "@/lib/brand";
 import { getTheme } from "@/lib/themes";
-import { getOrder, type OrderStatus } from "@/lib/orders";
-
-const STATUS_LABELS: Record<OrderStatus, { emoji: string; text: string }> = {
-  "odeme-bekliyor": { emoji: "⏳", text: "Ödeme bekleniyor (test modu)" },
-  odendi: { emoji: "✅", text: "Ödeme alındı" },
-  uretimde: { emoji: "🎨", text: "Kitabınız hazırlanıyor" },
-  kargolandi: { emoji: "📦", text: "Kargoya verildi" },
-  iptal: { emoji: "❌", text: "İptal edildi" },
-};
+import { getOrder, ORDER_STATUS_LABELS } from "@/lib/orders";
 
 export default async function OrderConfirmationPage({
   params,
@@ -27,7 +19,8 @@ export default async function OrderConfirmationPage({
 
   const theme = getTheme(order.themeId);
   const pkg = PACKAGES.find((p) => p.id === order.packageId);
-  const status = STATUS_LABELS[order.status] ?? STATUS_LABELS["odeme-bekliyor"];
+  const status =
+    ORDER_STATUS_LABELS[order.status] ?? ORDER_STATUS_LABELS["odeme-bekliyor"];
   const shortId = order.id.slice(0, 8).toUpperCase();
 
   return (

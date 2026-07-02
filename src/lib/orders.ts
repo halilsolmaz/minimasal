@@ -17,6 +17,26 @@ export type OrderStatus =
   | "kargolandi"
   | "iptal";
 
+export const ORDER_STATUSES: OrderStatus[] = [
+  "odeme-bekliyor",
+  "odendi",
+  "uretimde",
+  "kargolandi",
+  "iptal",
+];
+
+// Hem müşteri onay sayfası hem admin paneli bu etiketleri kullanır.
+export const ORDER_STATUS_LABELS: Record<
+  OrderStatus,
+  { emoji: string; text: string }
+> = {
+  "odeme-bekliyor": { emoji: "⏳", text: "Ödeme bekleniyor (test modu)" },
+  odendi: { emoji: "✅", text: "Ödeme alındı" },
+  uretimde: { emoji: "🎨", text: "Kitap hazırlanıyor" },
+  kargolandi: { emoji: "📦", text: "Kargoya verildi" },
+  iptal: { emoji: "❌", text: "İptal edildi" },
+};
+
 export type NewOrderInput = {
   childName: string;
   age: number;
@@ -47,6 +67,7 @@ export type Order = {
   themeId: string;
   options: Record<string, string>;
   favorite: string | null;
+  photoData: string | null;
   packageId: string;
   price: number;
   customerName: string;
@@ -159,6 +180,7 @@ type OrderRow = {
   theme_id: string;
   options_json: string;
   favorite: string | null;
+  photo_data: string | null;
   package_id: string;
   price: number;
   customer_name: string;
@@ -169,6 +191,60 @@ type OrderRow = {
   city: string;
   note: string | null;
 };
+
+// Liste görünümü — fotoğraf verisi (büyük) bilerek dahil edilmez.
+export type OrderListItem = {
+  id: string;
+  createdAt: string;
+  status: OrderStatus;
+  childName: string;
+  packageId: string;
+  price: number;
+  customerName: string;
+  city: string;
+};
+
+export function listOrders(): OrderListItem[] {
+  const rows = db
+    .prepare(
+      `SELECT id, created_at, status, child_name, package_id, price,
+              customer_name, city
+       FROM orders ORDER BY created_at DESC`
+    )
+    .all() as Array<
+    Pick<
+      OrderRow,
+      | "id"
+      | "created_at"
+      | "status"
+      | "child_name"
+      | "package_id"
+      | "price"
+      | "customer_name"
+      | "city"
+    >
+  >;
+  return rows.map((r) => ({
+    id: r.id,
+    createdAt: r.created_at,
+    status: r.status,
+    childName: r.child_name,
+    packageId: r.package_id,
+    price: r.price,
+    customerName: r.customer_name,
+    city: r.city,
+  }));
+}
+
+export function updateOrderStatus(id: string, status: OrderStatus): boolean {
+  if (!ORDER_STATUSES.includes(status)) {
+    throw new OrderValidationError("Geçersiz sipariş durumu.");
+  }
+  const result = db
+    .prepare("UPDATE orders SET status = ? WHERE id = ?")
+    .run(status, id);
+  return result.changes > 0;
+}
 
 export function getOrder(id: string): Order | null {
   const row = db
@@ -185,6 +261,7 @@ export function getOrder(id: string): Order | null {
     themeId: row.theme_id,
     options: JSON.parse(row.options_json),
     favorite: row.favorite,
+    photoData: row.photo_data,
     packageId: row.package_id,
     price: row.price,
     customerName: row.customer_name,

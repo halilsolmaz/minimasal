@@ -89,6 +89,9 @@ src/
     siparis/page.tsx      # CHECKOUT (client): paket seçimi + adres formu + özet (sepet yok, doğrudan sipariş)
     siparis/[id]/page.tsx # SİPARİŞ ONAY/DURUM (server): DB'den okur; "linki bilen görür" modeli
     api/siparis/route.ts  # POST: sipariş oluşturur (doğrulama + fiyat sunucuda)
+    admin/page.tsx        # ADMIN: sipariş listesi (şifre: .env.local ADMIN_PASSWORD; boşsa panel kapalı)
+    admin/[id]/page.tsx   # ADMIN: sipariş detayı + durum değiştirme (elle onay burada yürüyecek)
+    admin/actions.ts      # Server Action'lar: login/logout/durum — her aksiyon yetki kontrolü yapar
   components/
     Header.tsx
     Footer.tsx
@@ -97,7 +100,8 @@ src/
     themes.ts         # KOLAY DEĞİŞİR: 3 tema + her temanın seçenekleri (StoryTheme tipi)
     wizard.ts         # sihirbaz durumu: tip + sessionStorage yükle/kaydet (olustur ↔ siparis paylaşır)
     db.ts             # SQLite bağlantısı (better-sqlite3, dosya: data/minimasal.db — gitignore'da)
-    orders.ts         # sipariş oluştur/oku + TÜM doğrulama; fiyat asla istemciden alınmaz
+    orders.ts         # sipariş oluştur/oku/listele/durum + TÜM doğrulama; fiyat asla istemciden alınmaz
+    adminAuth.ts      # tek şifreli admin girişi (HMAC çerez) — canlıdan önce gerçek auth ile değişecek
 data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 ```
 
@@ -116,18 +120,19 @@ data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 - `/olustur` 7 adımlı sihirbaz: foto yükleme (JPG/PNG + 10 MB doğrulamalı, küçültülüp data URL yapılır), ad, yaş+cinsiyet, tema seçimi, temaya özel seçimler, favori (opsiyonel), özet + **watermark'lı sahte önizleme kartı**. Durum sessionStorage'da → yenilemede kaybolmaz.
 - **Backend + veritabanı (2026-07-02):** SQLite + sipariş tablosu; `POST /api/siparis` sunucu tarafı doğrulamayla sipariş kaydediyor (fiyat sunucudan, istemciye güvenilmiyor).
 - **Checkout akışı (2026-07-02):** `/siparis` paket seçimi + adres formu; `/siparis/[id]` onay/durum sayfası. Ödeme test modunda (kart istenmez, sipariş `odeme-bekliyor` kalır). Uçtan uca tarayıcıda test edildi.
+- **Admin paneli (2026-07-02):** `/admin` sipariş listesi + detay + durum değiştirme (odendi/uretimde/kargolandi/iptal). Tek şifre (.env.local `ADMIN_PASSWORD`), HMAC çerezli oturum, `robots: noindex`. Müşteri sayfası durumu anında yansıtır. Uçtan uca test edildi.
+
+### Kurucu kararı (2026-07-02)
+Şirket kuruluşu, iyzico anlaşması, üyelik/e-posta doğrulama ve KVKK/hukuk metinleri **canlıya çıkış aşamasına ertelendi** — kurucu bunları o zaman halledecek. O yüzden öncelik ürün tarafında.
 
 ### Eksik (öncelik sırasıyla)
-1. **Ödeme** (iyzico hedefleniyor) — "ödeme önce" modeli. Kod tarafı hazır sayılır (tek nokta: sipariş oluşturma), asıl bekleyen şirket/anlaşma.
-2. **Üyelik/giriş + e-posta doğrulama** (+ istismar koruması: CAPTCHA, rate-limit) + sipariş e-postaları ("alındı", "kargolandı").
-3. **AI görsel üretimi** (ürünün kalbi) + hikaye metni üretimi — `generateImage()`/`writeStory()` soyutlaması + API route. (Kurucu bilinçli erteledi; A/B yolu kararı bekliyor.)
-4. **⚖️ KVKK/hukuk metinleri** — çocuk fotoğrafı işleniyor: veli açık rıza, aydınlatma metni, gizlilik politikası, mesafeli satış sözleşmesi (cayma hakkı istisnalı), çerez onayı. Satıştan önce ŞART.
-5. **Admin/QA paneli** — siparişleri listele, her kitap basılmadan elle onay.
-6. **Matbaa + kargo entegrasyonu** (POD mı, yerel matbaa mı — henüz karar yok).
-7. **İçerik:** gerçek örnek galeri, SSS, İletişim, Hakkımızda; SEO/OG; mobil test.
-8. **Deploy** (hosting + domain — şu an sadece lokal; deploy'da SQLite → hosted DB geçişi gerekir).
+1. **AI görsel üretimi** (ürünün kalbi) + hikaye metni üretimi — `generateImage()`/`writeStory()` soyutlaması + API route. (A: gerçek fal.ai anahtarıyla / B: önce mock — kurucunun kararı bekleniyor.)
+2. **İçerik:** gerçek örnek galeri, SSS, İletişim, Hakkımızda; SEO/OG; mobil test.
+3. **Matbaa + kargo entegrasyonu** (POD mı, yerel matbaa mı — henüz karar yok).
+4. **Canlıya çıkış paketi (kurucu erteledi):** ödeme (iyzico + şirket), üyelik/e-posta doğrulama + istismar koruması (CAPTCHA, rate-limit), sipariş e-postaları, KVKK/hukuk metinleri, admin auth sertleştirme.
+5. **Deploy** (hosting + domain; SQLite → hosted DB geçişi gerekir).
 
-**Sıradaki adım:** kurucunun şirket/iyzico durumu netleşene kadar 2. madde (üyelik + e-posta) veya 4. madde (hukuk metin taslakları); AI entegrasyonu kurucu istediğinde.
+**Sıradaki adım:** AI entegrasyonu (kurucu "biraz geç girelim" dedi — hazır olduğunda A/B yolunu seçecek) veya içerik sayfaları.
 
 ---
 
