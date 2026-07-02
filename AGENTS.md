@@ -69,8 +69,9 @@ Kurucu, birinin binlerce sahte sipariş açıp AI maliyetiyle zarar vermesinden 
 - **Sağlayıcı:** **fal.ai** (çoklu-model, tek API anahtarı). Alternatif: Replicate.
 - **Görsel modeli:** **Nano Banana Pro (Gemini 3 Pro Image)** — Temmuz 2026'da karakter tutarlılığında lider. **Kapak dahil** her görselde bu kullanılacak (kurucu haklı olarak kapağın satışı belirlediğini vurguladı; kalite > birkaç sent maliyet). Yedek: **Seedream**.
 - **Hikaye metni:** Bir LLM (Claude veya Gemini) yazacak (~2 sent/kitap). Görselden bağımsız.
-- **Soyutlama:** Tüm AI çağrıları `generateImage()` / `writeStory()` gibi tek arayüz arkasında olmalı → sağlayıcı/model tek dosyada değiştirilebilsin.
-- **Not:** Henüz HİÇBİR AI entegrasyonu yok. Önizleme şu an sahte (setTimeout + statik placeholder).
+- **Soyutlama (KURULDU, 2026-07-02):** Tüm AI çağrıları `generateImage()` / `writeStory()` arkasında (`src/lib/ai/`). Sağlayıcı seçimi env ile: `AI_PROVIDER=mock|fal`; boşsa FAL_KEY varsa fal, yoksa mock.
+- **Mevcut durum:** Boru hattı uçtan uca ÇALIŞIYOR ama **mock sağlayıcıyla** (sharp ile sunucuda sahte kapak üretir, çocuğun fotoğrafını kapağa yerleştirir, başlığı şablondan yazar). Gerçek fal.ai bağlantısı `src/lib/ai/fal.ts` içinde bilinçli boş iskelet — FAL_KEY gelince oradaki adımları izle (model kimliği/fiyatı GÜNCEL dokümandan teyit et, sonra suluboya vs 3D karşılaştırması).
+- **Önizleme koruması uygulandı:** filigran sunucuda görselin piksellerine işlenir (sharp), çıktı max 640px/JPEG; ham görsel istemciye inmez. İstismar koruması: IP başına günlük `TEASER_IP_LIMIT` (vars. 5) + site geneli günlük `TEASER_DAILY_LIMIT` (vars. 100) — aşılınca 429.
 
 ---
 
@@ -92,6 +93,7 @@ src/
     admin/page.tsx        # ADMIN: sipariş listesi (şifre: .env.local ADMIN_PASSWORD; boşsa panel kapalı)
     admin/[id]/page.tsx   # ADMIN: sipariş detayı + durum değiştirme (elle onay burada yürüyecek)
     admin/actions.ts      # Server Action'lar: login/logout/durum — her aksiyon yetki kontrolü yapar
+    api/onizleme/route.ts # POST: ücretsiz teaser üretimi (limit → hikaye → görsel → filigran → kayıt)
   components/
     Header.tsx
     Footer.tsx
@@ -102,6 +104,13 @@ src/
     db.ts             # SQLite bağlantısı (better-sqlite3, dosya: data/minimasal.db — gitignore'da)
     orders.ts         # sipariş oluştur/oku/listele/durum + TÜM doğrulama; fiyat asla istemciden alınmaz
     adminAuth.ts      # tek şifreli admin girişi (HMAC çerez) — canlıdan önce gerçek auth ile değişecek
+    teasers.ts        # ücretsiz önizleme kayıtları + IP/günlük limit kontrolü
+    ai/
+      index.ts        # AI KAPISI: generateImage()/writeStory() — sağlayıcıyı bilen TEK yer
+      types.ts        # ortak tipler (StoryInput, AiProvider...)
+      mock.ts         # anahtarsız mock sağlayıcı (sharp ile sahte kapak + şablon başlık)
+      fal.ts          # fal.ai iskeleti — FAL_KEY gelince doldurulacak (içinde yapılacaklar listesi var)
+      watermark.ts    # filigran + küçültme (piksellere işlenir; ham görsel istemciye inmez)
 data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 ```
 
@@ -121,12 +130,13 @@ data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 - **Backend + veritabanı (2026-07-02):** SQLite + sipariş tablosu; `POST /api/siparis` sunucu tarafı doğrulamayla sipariş kaydediyor (fiyat sunucudan, istemciye güvenilmiyor).
 - **Checkout akışı (2026-07-02):** `/siparis` paket seçimi + adres formu; `/siparis/[id]` onay/durum sayfası. Ödeme test modunda (kart istenmez, sipariş `odeme-bekliyor` kalır). Uçtan uca tarayıcıda test edildi.
 - **Admin paneli (2026-07-02):** `/admin` sipariş listesi + detay + durum değiştirme (odendi/uretimde/kargolandi/iptal). Tek şifre (.env.local `ADMIN_PASSWORD`), HMAC çerezli oturum, `robots: noindex`. Müşteri sayfası durumu anında yansıtır. Uçtan uca test edildi.
+- **AI iskeleti (2026-07-02):** `/olustur` 7. adımdaki önizleme artık GERÇEK boru hattından geçiyor: `POST /api/onizleme` → limit kontrolü → `writeStory()` (başlık) → `generateImage()` (kapak) → sunucuda filigran + 640px küçültme → `teasers` tablosuna kayıt → istemciye filigranlı JPEG. Şimdilik mock sağlayıcı; önizleme sessionStorage'da saklanır (yenilemede hak yakılmaz). Limitler ve 429 akışı test edildi.
 
 ### Kurucu kararı (2026-07-02)
 Şirket kuruluşu, iyzico anlaşması, üyelik/e-posta doğrulama ve KVKK/hukuk metinleri **canlıya çıkış aşamasına ertelendi** — kurucu bunları o zaman halledecek. O yüzden öncelik ürün tarafında.
 
 ### Eksik (öncelik sırasıyla)
-1. **AI görsel üretimi** (ürünün kalbi) + hikaye metni üretimi — `generateImage()`/`writeStory()` soyutlaması + API route. (A: gerçek fal.ai anahtarıyla / B: önce mock — kurucunun kararı bekleniyor.)
+1. **Gerçek AI bağlantısı** — iskelet hazır, `src/lib/ai/fal.ts` doldurulacak. Bekleyen: kurucunun fal.ai hesabı + FAL_KEY (kart bağlamayı gerektirir, kurucu yapacak). Anahtar gelince: model/fiyat teyidi → fal.ts implementasyonu → suluboya vs 3D stil testi. Sonrasında: sipariş sonrası TAM KİTAP üretimi (8 sayfa, ham dosyalar sunucuda).
 2. **İçerik:** gerçek örnek galeri, SSS, İletişim, Hakkımızda; SEO/OG; mobil test.
 3. **Matbaa + kargo entegrasyonu** (POD mı, yerel matbaa mı — henüz karar yok).
 4. **Canlıya çıkış paketi (kurucu erteledi):** ödeme (iyzico + şirket), üyelik/e-posta doğrulama + istismar koruması (CAPTCHA, rate-limit), sipariş e-postaları, KVKK/hukuk metinleri, admin auth sertleştirme.

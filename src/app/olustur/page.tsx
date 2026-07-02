@@ -8,6 +8,7 @@ import {
   initialWizardState,
   loadWizardState,
   saveWizardState,
+  PREVIEW_STORAGE_KEY,
   type WizardState,
 } from "@/lib/wizard";
 
@@ -53,11 +54,16 @@ function photoToDataUrl(file: File): Promise<string> {
   });
 }
 
+// Üretilen önizleme de saklanır — yenilemede tekrar üretilmesin
+// (her üretim ücretsiz hak limitinden düşer).
+type Preview = { title: string; imageData: string };
+
 export default function CreatePage() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<FormState>(initialState);
   const [generating, setGenerating] = useState(false);
-  const [previewReady, setPreviewReady] = useState(false);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
@@ -67,6 +73,12 @@ export default function CreatePage() {
     if (saved) {
       setStep(saved.step);
       setData(saved.data);
+    }
+    try {
+      const savedPreview = sessionStorage.getItem(PREVIEW_STORAGE_KEY);
+      if (savedPreview) setPreview(JSON.parse(savedPreview));
+    } catch {
+      sessionStorage.removeItem(PREVIEW_STORAGE_KEY);
     }
     setHydrated(true);
   }, []);
@@ -123,14 +135,40 @@ export default function CreatePage() {
     }
   };
 
-  const startPreview = () => {
+  const startPreview = async () => {
     setGenerating(true);
-    setPreviewReady(false);
-    // AI entegrasyonu buraya gelecek — şimdilik simüle ediyoruz.
-    setTimeout(() => {
+    setPreviewError(null);
+    try {
+      const res = await fetch("/api/onizleme", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          childName: data.childName,
+          age: data.age,
+          gender: data.gender,
+          themeId: data.themeId,
+          options: data.options,
+          favorite: data.favorite,
+          photoData: data.photoUrl,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setPreviewError(json.error ?? "Önizleme üretilemedi.");
+        return;
+      }
+      const next: Preview = { title: json.title, imageData: json.imageData };
+      setPreview(next);
+      try {
+        sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        // Kota dolarsa önizleme sadece bu oturumda hafızada kalır.
+      }
+    } catch {
+      setPreviewError("Sunucuya ulaşılamadı. Lütfen tekrar deneyin.");
+    } finally {
       setGenerating(false);
-      setPreviewReady(true);
-    }, 2200);
+    }
   };
 
   const progress = ((step + 1) / totalSteps) * 100;
@@ -367,18 +405,25 @@ export default function CreatePage() {
               <Summary data={data} themeTitle={theme?.title} />
 
               <div className="mt-6">
-                {!previewReady ? (
-                  <button
-                    onClick={startPreview}
-                    disabled={generating}
-                    className="w-full rounded-full bg-primary px-6 py-4 text-base font-bold text-white shadow-[var(--shadow-lift)] hover:bg-primary-dark transition disabled:opacity-70"
-                  >
-                    {generating
-                      ? "Kahramanınız çiziliyor… 🎨"
-                      : "Ücretsiz önizleme oluştur →"}
-                  </button>
+                {!preview ? (
+                  <>
+                    <button
+                      onClick={startPreview}
+                      disabled={generating}
+                      className="w-full rounded-full bg-primary px-6 py-4 text-base font-bold text-white shadow-[var(--shadow-lift)] hover:bg-primary-dark transition disabled:opacity-70"
+                    >
+                      {generating
+                        ? "Kahramanınız çiziliyor… 🎨 (yaklaşık yarım dakika)"
+                        : "Ücretsiz önizleme oluştur →"}
+                    </button>
+                    {previewError && (
+                      <p className="mt-3 text-sm font-semibold text-red-600 text-center">
+                        ⚠️ {previewError}
+                      </p>
+                    )}
+                  </>
                 ) : (
-                  <PreviewCard data={data} />
+                  <PreviewCard preview={preview} />
                 )}
               </div>
             </StepShell>
@@ -492,29 +537,22 @@ function Summary({
   );
 }
 
-function PreviewCard({ data }: { data: FormState }) {
+function PreviewCard({ preview }: { preview: Preview }) {
   return (
     <div className="text-center">
-      <div className="relative mx-auto h-72 w-56 rounded-2xl bg-gradient-to-br from-primary-soft to-accent/20 border border-ink/10 shadow-[var(--shadow-lift)] flex flex-col items-center justify-center gap-3 overflow-hidden">
-        <span className="text-6xl">🦸</span>
-        <span className="font-display font-bold text-ink px-4 leading-tight">
-          {data.childName || "Kahramanımız"}
-          <br />
-          ve Büyük Macera
-        </span>
-        {/* Watermark deseni — ekran görüntüsü korumasını temsil eder */}
-        <div className="pointer-events-none absolute inset-0 flex flex-wrap items-center justify-center gap-6 opacity-20 rotate-[-20deg]">
-          {Array.from({ length: 12 }).map((_, i) => (
-            <span key={i} className="text-xs font-bold text-ink whitespace-nowrap">
-              MiniMasal ÖNİZLEME
-            </span>
-          ))}
-        </div>
-      </div>
-      <p className="mt-5 text-sm text-ink-soft max-w-sm mx-auto">
-        Bu, önizleme konseptidir. Gerçek görsel AI ile üretilecek ve filigranlı
-        gösterilecek — baskı kalitesindeki dosya yalnızca sipariş sonrası
-        hazırlanır.
+      {/* Filigran sunucuda görselin piksellerine işlendi — buradaki sadece gösterim */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={preview.imageData}
+        alt={`Kitap kapağı önizlemesi: ${preview.title}`}
+        className="mx-auto w-64 rounded-2xl border border-ink/10 shadow-[var(--shadow-lift)]"
+      />
+      <p className="mt-4 font-display font-bold text-xl text-ink">
+        {preview.title}
+      </p>
+      <p className="mt-2 text-sm text-ink-soft max-w-sm mx-auto">
+        Bu düşük çözünürlüklü, filigranlı bir önizlemedir. Baskı kalitesindeki
+        kitap yalnızca sipariş sonrası hazırlanır.
       </p>
       <Link
         href="/siparis"

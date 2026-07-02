@@ -14,6 +14,7 @@ export type WizardState = {
 };
 
 export const WIZARD_STORAGE_KEY = "minimasal-olustur";
+export const PREVIEW_STORAGE_KEY = "minimasal-onizleme";
 
 export const initialWizardState: WizardState = {
   photoUrl: null,
@@ -48,6 +49,7 @@ export function saveWizardState(step: number, data: WizardState) {
 
 export function clearWizardState() {
   sessionStorage.removeItem(WIZARD_STORAGE_KEY);
+  sessionStorage.removeItem(PREVIEW_STORAGE_KEY);
 }
 
 // Sipariş verilebilmesi için sihirbazın tamamlanmış olması gerekir.

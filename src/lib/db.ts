@@ -42,6 +42,18 @@ function createDb(): Database.Database {
       note          TEXT
     )
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS teasers (
+      id          TEXT PRIMARY KEY,
+      created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+      ip          TEXT NOT NULL,
+      child_name  TEXT NOT NULL,
+      theme_id    TEXT NOT NULL,
+      title       TEXT NOT NULL,
+      provider    TEXT NOT NULL,
+      image_data  TEXT NOT NULL
+    )
+  `);
   return db;
 }
 
