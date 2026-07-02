@@ -1,31 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 import { THEMES, getTheme } from "@/lib/themes";
+import {
+  initialWizardState,
+  loadWizardState,
+  saveWizardState,
+  type WizardState,
+} from "@/lib/wizard";
 
-type FormState = {
-  photoUrl: string | null;
-  photoName: string | null;
-  childName: string;
-  age: number | null;
-  gender: "kiz" | "erkek" | null;
-  themeId: string | null;
-  options: Record<string, string>; // optionId -> choiceId
-  favorite: string;
-};
+type FormState = WizardState;
 
-const initialState: FormState = {
-  photoUrl: null,
-  photoName: null,
-  childName: "",
-  age: null,
-  gender: null,
-  themeId: null,
-  options: {},
-  favorite: "",
-};
+const initialState: FormState = initialWizardState;
 
 const STEP_TITLES = [
   "Fotoğraf",
@@ -37,11 +25,57 @@ const STEP_TITLES = [
   "Önizleme",
 ];
 
+const MAX_PHOTO_MB = 10;
+const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
+
+// Fotoğrafı küçültüp data URL'e çevirir: hem sessionStorage'a sığar
+// hem de blob URL'in yenilemede ölmesi sorununu ortadan kaldırır.
+// (Baskı/AI için tam çözünürlüklü dosya ileride sunucuya yüklenecek.)
+function photoToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1024;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Fotoğraf okunamadı"));
+    };
+    img.src = objectUrl;
+  });
+}
+
 export default function CreatePage() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<FormState>(initialState);
   const [generating, setGenerating] = useState(false);
   const [previewReady, setPreviewReady] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Kaydedilmiş durumu geri yükle (yalnızca tarayıcıda, ilk render sonrası).
+  useEffect(() => {
+    const saved = loadWizardState();
+    if (saved) {
+      setStep(saved.step);
+      setData(saved.data);
+    }
+    setHydrated(true);
+  }, []);
+
+  // Her değişiklikte kaydet.
+  useEffect(() => {
+    if (!hydrated) return;
+    saveWizardState(step, data);
+  }, [hydrated, step, data]);
 
   const theme = data.themeId ? getTheme(data.themeId) : undefined;
   const totalSteps = STEP_TITLES.length;
@@ -70,10 +104,23 @@ export default function CreatePage() {
     }
   }, [step, data, theme]);
 
-  const handlePhoto = (file: File | undefined) => {
+  const handlePhoto = async (file: File | undefined) => {
     if (!file) return;
-    const url = URL.createObjectURL(file);
-    update({ photoUrl: url, photoName: file.name });
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      setPhotoError("Lütfen JPG veya PNG formatında bir fotoğraf seçin.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+      setPhotoError(`Fotoğraf en fazla ${MAX_PHOTO_MB} MB olabilir.`);
+      return;
+    }
+    try {
+      const dataUrl = await photoToDataUrl(file);
+      setPhotoError(null);
+      update({ photoUrl: dataUrl, photoName: file.name });
+    } catch {
+      setPhotoError("Fotoğraf okunamadı. Lütfen başka bir dosya deneyin.");
+    }
   };
 
   const startPreview = () => {
@@ -128,7 +175,7 @@ export default function CreatePage() {
               <label className="block cursor-pointer">
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png"
                   className="hidden"
                   onChange={(e) => handlePhoto(e.target.files?.[0])}
                 />
@@ -158,6 +205,11 @@ export default function CreatePage() {
                   )}
                 </div>
               </label>
+              {photoError && (
+                <p className="mt-3 text-sm font-semibold text-red-600">
+                  ⚠️ {photoError}
+                </p>
+              )}
               <p className="mt-4 text-xs text-ink-soft">
                 🔒 Fotoğraflar yalnızca kitabınızı hazırlamak için kullanılır.
               </p>
@@ -464,9 +516,12 @@ function PreviewCard({ data }: { data: FormState }) {
         gösterilecek — baskı kalitesindeki dosya yalnızca sipariş sonrası
         hazırlanır.
       </p>
-      <button className="mt-6 rounded-full bg-accent px-7 py-3.5 text-base font-bold text-ink hover:bg-accent-dark transition">
+      <Link
+        href="/siparis"
+        className="mt-6 inline-block rounded-full bg-accent px-7 py-3.5 text-base font-bold text-ink hover:bg-accent-dark transition"
+      >
         Beğendim, siparişe geç →
-      </button>
+      </Link>
     </div>
   );
 }

@@ -20,6 +20,9 @@
 # production
 /build
 
+# local veritabanı (kişisel veri içerir — asla commit edilmez)
+/data
+
 # misc
 .DS_Store
 *.pem

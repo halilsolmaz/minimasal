@@ -8,7 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 > Bu dosya, projeye yeni katılan bir geliştirici/asistan için tam bağlam sağlar.
 > Başka bir bilgisayara geçildiğinde "kaldığın yerden devam" için hazırlanmıştır.
-> **Son güncelleme:** 2026-07-01
+> **Son güncelleme:** 2026-07-02
 
 ---
 
@@ -51,6 +51,11 @@ Kurucu, birinin binlerce sahte sipariş açıp AI maliyetiyle zarar vermesinden 
 - Teaser'ı korumak için: **üyelik/e-posta doğrulama + CAPTCHA + günlük/IP başına limit.**
 - **Kritik içgörü:** AI maliyeti düşük (~$1–1.5/kitap). Asıl maliyet **baskı + kargo** (~toplamın %90'ı). Fiyatlandırma baskıya göre kurulmalı.
 
+### Satın alma akışı kararı (2026-07-02)
+- **Sepet YOK.** Her kitap kişiye özel üretildiği için klasik e-ticaret sepeti gereksiz; akış doğrudan: sihirbaz → önizleme → paket seçimi → adres → ödeme. Çoklu kitap ihtiyacı ileride "siparişi tamamla, yenisini başlat" ile çözülecek.
+- **Ödeme sağlayıcısı: iyzico hedefleniyor** (Stripe Türkiye'deki şirketlere doğrudan hizmet vermiyor; alternatif PayTR). iyzico anlaşması için resmi şirket gerekiyor — kurucunun şirket durumu henüz netleşmedi, cevabı bekleniyor. O yüzden ödeme şimdilik **test modu** (sipariş `odeme-bekliyor` durumunda kaydediliyor, kart istenmez).
+- Kişiye özel ürünlerde **cayma hakkı istisnası** var — mesafeli satış sözleşmesi buna göre yazılacak.
+
 ### Önizleme koruması (ekran görüntüsü alıp kaçmayı önleme)
 - Önizleme **filigranlı (watermark) + düşük çözünürlük** olarak sunulur.
 - **300 DPI baskı kalitesindeki dosya tarayıcıya HİÇ inmez** — doğrudan sunucudan matbaaya gider.
@@ -77,17 +82,27 @@ Kurucu, birinin binlerce sahte sipariş açıp AI maliyetiyle zarar vermesinden 
 ```
 src/
   app/
-    layout.tsx        # kök layout, fontlar, metadata (lang="tr")
-    globals.css       # tasarım sistemi — Tailwind v4 @theme (renkler, gölgeler)
-    page.tsx          # ANA SAYFA: hero, nasıl çalışır, temalar, neden biz, fiyatlar, CTA
-    olustur/page.tsx  # OLUŞTURMA SİHİRBAZI (client): 7 adımlı akış + sahte önizleme
+    layout.tsx            # kök layout, fontlar, metadata (lang="tr")
+    globals.css           # tasarım sistemi — Tailwind v4 @theme (renkler, gölgeler)
+    page.tsx              # ANA SAYFA: hero, nasıl çalışır, temalar, neden biz, fiyatlar, CTA
+    olustur/page.tsx      # OLUŞTURMA SİHİRBAZI (client): 7 adım + sahte önizleme; sessionStorage kalıcılığı
+    siparis/page.tsx      # CHECKOUT (client): paket seçimi + adres formu + özet (sepet yok, doğrudan sipariş)
+    siparis/[id]/page.tsx # SİPARİŞ ONAY/DURUM (server): DB'den okur; "linki bilen görür" modeli
+    api/siparis/route.ts  # POST: sipariş oluşturur (doğrulama + fiyat sunucuda)
   components/
     Header.tsx
     Footer.tsx
   lib/
     brand.ts          # KOLAY DEĞİŞİR: marka adı, slogan, PACKAGES (8/12/16 = ₺499/699/899, geçici)
     themes.ts         # KOLAY DEĞİŞİR: 3 tema + her temanın seçenekleri (StoryTheme tipi)
+    wizard.ts         # sihirbaz durumu: tip + sessionStorage yükle/kaydet (olustur ↔ siparis paylaşır)
+    db.ts             # SQLite bağlantısı (better-sqlite3, dosya: data/minimasal.db — gitignore'da)
+    orders.ts         # sipariş oluştur/oku + TÜM doğrulama; fiyat asla istemciden alınmaz
+data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 ```
+
+- **Veritabanı:** lokal geliştirme için SQLite (`better-sqlite3`). Canlıya çıkarken barındırılan DB'ye (ör. Postgres) geçilecek; tüm erişim `src/lib/db.ts` + `orders.ts` üzerinden olduğu için geçiş tek nokta.
+- Fotoğraf şimdilik küçültülmüş data URL olarak siparişle birlikte DB'ye kaydediliyor; tam çözünürlüklü yükleme AI entegrasyonuyla gelecek.
 
 - **Kolay değiştirilebilir konfig:** temalar/hikaye/fiyat/marka `src/lib/` içinde ayrıldı — koda dokunmadan güncellenebilir.
 
@@ -98,20 +113,21 @@ src/
 ### Yapıldı
 - Tasarım sistemi + marka + layout
 - Landing page (tam)
-- `/olustur` 7 adımlı sihirbaz: foto yükleme (yalnızca tarayıcıda önizleme), ad, yaş+cinsiyet, tema seçimi, temaya özel seçimler, favori (opsiyonel), özet + **watermark'lı sahte önizleme kartı**
+- `/olustur` 7 adımlı sihirbaz: foto yükleme (JPG/PNG + 10 MB doğrulamalı, küçültülüp data URL yapılır), ad, yaş+cinsiyet, tema seçimi, temaya özel seçimler, favori (opsiyonel), özet + **watermark'lı sahte önizleme kartı**. Durum sessionStorage'da → yenilemede kaybolmaz.
+- **Backend + veritabanı (2026-07-02):** SQLite + sipariş tablosu; `POST /api/siparis` sunucu tarafı doğrulamayla sipariş kaydediyor (fiyat sunucudan, istemciye güvenilmiyor).
+- **Checkout akışı (2026-07-02):** `/siparis` paket seçimi + adres formu; `/siparis/[id]` onay/durum sayfası. Ödeme test modunda (kart istenmez, sipariş `odeme-bekliyor` kalır). Uçtan uca tarayıcıda test edildi.
 
 ### Eksik (öncelik sırasıyla)
-1. **AI görsel üretimi** (ürünün kalbi) + hikaye metni üretimi — `generateImage()`/`writeStory()` soyutlaması + API route.
-2. **Backend + veritabanı** — şu an hiçbir şey kaydedilmiyor (yenilemede uçuyor). Fotoğraf sunucuya yüklenmiyor.
-3. **Üyelik/giriş + e-posta doğrulama** (+ istismar koruması: CAPTCHA, rate-limit).
-4. **Ödeme** (Türkiye için iyzico veya Stripe) — "ödeme önce" modeli.
-5. **Admin/QA paneli** — her kitap basılmadan elle onay.
-6. **⚖️ KVKK/hukuk metinleri** — çocuk fotoğrafı işleniyor: veli açık rıza, aydınlatma metni, gizlilik politikası, mesafeli satış sözleşmesi, çerez onayı. Satıştan önce ŞART.
-7. **Matbaa + kargo entegrasyonu** (POD mı, yerel matbaa mı — henüz karar yok).
-8. **İçerik:** gerçek örnek galeri, SSS, İletişim, Hakkımızda; SEO/OG; mobil test.
-9. **Deploy** (hosting + domain — şu an sadece lokal).
+1. **Ödeme** (iyzico hedefleniyor) — "ödeme önce" modeli. Kod tarafı hazır sayılır (tek nokta: sipariş oluşturma), asıl bekleyen şirket/anlaşma.
+2. **Üyelik/giriş + e-posta doğrulama** (+ istismar koruması: CAPTCHA, rate-limit) + sipariş e-postaları ("alındı", "kargolandı").
+3. **AI görsel üretimi** (ürünün kalbi) + hikaye metni üretimi — `generateImage()`/`writeStory()` soyutlaması + API route. (Kurucu bilinçli erteledi; A/B yolu kararı bekliyor.)
+4. **⚖️ KVKK/hukuk metinleri** — çocuk fotoğrafı işleniyor: veli açık rıza, aydınlatma metni, gizlilik politikası, mesafeli satış sözleşmesi (cayma hakkı istisnalı), çerez onayı. Satıştan önce ŞART.
+5. **Admin/QA paneli** — siparişleri listele, her kitap basılmadan elle onay.
+6. **Matbaa + kargo entegrasyonu** (POD mı, yerel matbaa mı — henüz karar yok).
+7. **İçerik:** gerçek örnek galeri, SSS, İletişim, Hakkımızda; SEO/OG; mobil test.
+8. **Deploy** (hosting + domain — şu an sadece lokal; deploy'da SQLite → hosted DB geçişi gerekir).
 
-**Sıradaki adım (kurucuyla mutabık):** AI entegrasyonu. İki yol: (A) fal.ai API anahtarı alıp gerçek kapak üret, (B) önce anahtarsız mock iskelet kur, anahtar gelince canlansın.
+**Sıradaki adım:** kurucunun şirket/iyzico durumu netleşene kadar 2. madde (üyelik + e-posta) veya 4. madde (hukuk metin taslakları); AI entegrasyonu kurucu istediğinde.
 
 ---
 
@@ -137,4 +153,4 @@ npm run dev            # http://localhost:3000
 
 ## 8. Yeni asistana ilk mesaj önerisi
 
-> "Bu bir Next.js projesi — kişiselleştirilmiş çocuk masal kitabı satan bir e-ticaret girişimi (MiniMasal). Kök dizindeki CLAUDE.md / AGENTS.md dosyasını oku; tüm kararlar, mimari ve kaldığımız yer orada. Özetle şu ana kadar landing sayfası ve oluşturma sihirbazı hazır; sıradaki adım AI görsel entegrasyonu (fal.ai + Nano Banana Pro). Buradan devam edelim."
+> "Bu bir Next.js projesi — kişiselleştirilmiş çocuk masal kitabı satan bir e-ticaret girişimi (MiniMasal). Kök dizindeki CLAUDE.md / AGENTS.md dosyasını oku; tüm kararlar, mimari ve kaldığımız yer orada. Özetle landing, oluşturma sihirbazı, veritabanı ve checkout (test modu) hazır; eksikler ve öncelik sırası dosyanın 6. bölümünde. Buradan devam edelim."
