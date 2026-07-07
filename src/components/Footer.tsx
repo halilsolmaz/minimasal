@@ -1,4 +1,11 @@
+import Link from "next/link";
 import { BRAND } from "@/lib/brand";
+
+const LINKS = [
+  { href: "/sss", label: "SSS" },
+  { href: "/hakkimizda", label: "Hakkımızda" },
+  { href: "/iletisim", label: "İletişim" },
+];
 
 export default function Footer() {
   return (
@@ -8,6 +15,17 @@ export default function Footer() {
           <span className="text-xl">📖</span>
           <span className="font-display font-bold text-ink">{BRAND.name}</span>
         </div>
+        <nav className="flex items-center gap-6 font-semibold">
+          {LINKS.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="hover:text-primary transition-colors"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
         <p className="text-center">
           Sevgiyle hazırlanır, özenle basılır. · {BRAND.email}
         </p>

@@ -137,7 +137,7 @@ data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 
 ### Eksik (öncelik sırasıyla)
 1. **Gerçek AI bağlantısı** — iskelet hazır, `src/lib/ai/fal.ts` doldurulacak. Bekleyen: kurucunun fal.ai hesabı + FAL_KEY (kart bağlamayı gerektirir, kurucu yapacak). Anahtar gelince: model/fiyat teyidi → fal.ts implementasyonu → suluboya vs 3D stil testi. Sonrasında: sipariş sonrası TAM KİTAP üretimi (8 sayfa, ham dosyalar sunucuda).
-2. **İçerik:** gerçek örnek galeri, SSS, İletişim, Hakkımızda; SEO/OG; mobil test.
+2. **İçerik:** ~~SSS, İletişim, Hakkımızda~~ (2026-07-02'de eklendi, footer/header bağlantılı, mobil test edildi). Kalan: gerçek örnek galeri (gerçek AI görselleri gelince — sahte galeri koymuyoruz), OG görselleri, sosyal medya.
 3. **Matbaa + kargo entegrasyonu** (POD mı, yerel matbaa mı — henüz karar yok).
 4. **Canlıya çıkış paketi (kurucu erteledi):** ödeme (iyzico + şirket), üyelik/e-posta doğrulama + istismar koruması (CAPTCHA, rate-limit), sipariş e-postaları, KVKK/hukuk metinleri, admin auth sertleştirme.
 5. **Deploy** (hosting + domain; SQLite → hosted DB geçişi gerekir).
