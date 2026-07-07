@@ -11,7 +11,8 @@ export const BRAND = {
 
 export type Package = {
   id: string;
-  pages: number;
+  pages: number; // iç sayfa sayısı (her sahne = 2 sayfa: solda yazı, sağda resim)
+  scenes: number; // sahne sayısı = üretilecek görsel sayısı
   price: number; // TL
   label: string;
   highlight?: boolean;
@@ -19,22 +20,30 @@ export type Package = {
 };
 
 // Fiyatlar geçici — matbaa maliyeti netleşince güncellenecek.
+// Format kararı (2026-07-07): sayfa = çift sayfa düzeni; sahne başına
+// solda 4-8 cümlelik metin, sağda tam sayfa görsel.
 export const PACKAGES: Package[] = [
   {
     id: "mini",
-    pages: 8,
+    pages: 10,
+    scenes: 5,
     price: 499,
     label: "Mini Masal",
-    perks: ["8 sayfa resimli masal", "Kişiye özel kahraman", "Dijital önizleme"],
+    perks: [
+      "10 sayfa · 5 resimli sahne",
+      "Kişiye özel kahraman",
+      "Dijital önizleme",
+    ],
   },
   {
     id: "klasik",
-    pages: 12,
+    pages: 16,
+    scenes: 8,
     price: 699,
     label: "Klasik Masal",
     highlight: true,
     perks: [
-      "12 sayfa resimli masal",
+      "16 sayfa · 8 resimli sahne",
       "Kişiye özel kahraman",
       "Dijital önizleme",
       "Sert kapak baskı",
@@ -42,11 +51,12 @@ export const PACKAGES: Package[] = [
   },
   {
     id: "deluxe",
-    pages: 16,
+    pages: 20,
+    scenes: 10,
     price: 899,
     label: "Deluxe Masal",
     perks: [
-      "16 sayfa resimli masal",
+      "20 sayfa · 10 resimli sahne",
       "Kişiye özel kahraman",
       "Dijital önizleme",
       "Sert kapak + özel kutu",

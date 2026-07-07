@@ -93,7 +93,7 @@ export default function Home() {
                   <span className="font-display font-bold text-ink text-center px-4 leading-tight">
                     Elif ve Kayıp Yıldız
                   </span>
-                  <span className="text-xs text-ink-soft">MiniMasal · 8 sayfa</span>
+                  <span className="text-xs text-ink-soft">MiniMasal · 10 sayfa</span>
                 </div>
               </div>
             </div>

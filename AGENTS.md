@@ -27,7 +27,7 @@ AI kullanarak **kişiselleştirilmiş hediye kitapları** satan bir e-ticaret gi
 ## 2. Kilitlenmiş ürün kararları (çocuk kitabı MVP)
 
 - **Hedef kitle:** 3–9 yaş çocuklar.
-- **Format (GÜNCELLENDİ 2026-07-07, kurucu kararı):** Deneme formatı **toplam 10 iç sayfa = 5 sahne**; her sahne bir çift sayfa: **solda 4–8 cümlelik büyük puntolu anlatı metni, sağda tam sayfa görsel**. Konuşma baloncuğu YOK (o özellik çift kitabına ait). Eski 8 sahnelik iskelet 5 sahneye sıkıştırıldı: `1 Tanışma → 2 Maceraya çağrı → 3 Zorluk → 4 Cesaret & Zafer → 5 Sıcak dönüş`. Mevcut 8/12/16 sayfalık paket tanımları, deneme + matbaa kararından sonra bu formata göre yeniden yazılacak.
+- **Format (GÜNCELLENDİ 2026-07-07, kurucu kararı):** Deneme formatı **toplam 10 iç sayfa = 5 sahne**; her sahne bir çift sayfa: **solda 4–8 cümlelik büyük puntolu anlatı metni, sağda tam sayfa görsel**. Konuşma baloncuğu YOK (o özellik çift kitabına ait). Paketler (kurucu 10-15-20 istedi; çift sayfa düzeni sayfa sayısını çift zorunlu kıldığı için 15→16 yapıldı): **Mini 10 sayfa/5 sahne, Klasik 16 sayfa/8 sahne, Deluxe 20 sayfa/10 sahne.** Sahne iskeletleri: 5 sahne `Tanışma → Maceraya çağrı → Zorluk → Cesaret & Zafer → Sıcak dönüş`; 8 sahne orijinal iskelet (`Tanışma → Çağrı → Eşik → Karşılaşma → Zorluk → Cesaret → Zafer → Sıcak dönüş`); 10 sahne genişletilmiş (LLM entegrasyonunda tanımlanacak).
 - **Dil:** Başta yalnızca Türkçe.
 - **Benzerlik hedefi:** Çocuk karaktere **"tanınır ama stilize"** benzemeli (birebir/fotoğraf gerçekliği şart değil).
 - **Sanat stili:** Başlangıçta **suluboya / yumuşak illüstrasyon** (yüz tutarlılığını en çok affeden, en az riskli stil). 3D Pixar tarzı ileride "premium" seçenek olabilir. Karar netleşmeden önce ilk gerçek çıktılarla suluboya vs 3D karşılaştırması yapılacak.
@@ -98,7 +98,7 @@ src/
     Header.tsx
     Footer.tsx
   lib/
-    brand.ts          # KOLAY DEĞİŞİR: marka adı, slogan, PACKAGES (8/12/16 = ₺499/699/899, geçici)
+    brand.ts          # KOLAY DEĞİŞİR: marka adı, slogan, PACKAGES (10/16/20 sayfa = 5/8/10 sahne = ₺499/699/899, fiyatlar geçici)
     themes.ts         # KOLAY DEĞİŞİR: 3 tema + her temanın seçenekleri (StoryTheme tipi)
     wizard.ts         # sihirbaz durumu: tip + sessionStorage yükle/kaydet (olustur ↔ siparis paylaşır)
     db.ts             # SQLite bağlantısı (better-sqlite3, dosya: data/minimasal.db — gitignore'da)
