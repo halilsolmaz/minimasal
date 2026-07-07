@@ -27,12 +27,12 @@ AI kullanarak **kişiselleştirilmiş hediye kitapları** satan bir e-ticaret gi
 ## 2. Kilitlenmiş ürün kararları (çocuk kitabı MVP)
 
 - **Hedef kitle:** 3–9 yaş çocuklar.
-- **Format:** 8 sayfa ile başla (ileride 12/16 paketleri). Her sayfa = **görsel + 2–4 cümle anlatı metni**. **Konuşma baloncuğu YOK** (o özellik çift kitabına ait).
+- **Format (GÜNCELLENDİ 2026-07-07, kurucu kararı):** Deneme formatı **toplam 10 iç sayfa = 5 sahne**; her sahne bir çift sayfa: **solda 4–8 cümlelik büyük puntolu anlatı metni, sağda tam sayfa görsel**. Konuşma baloncuğu YOK (o özellik çift kitabına ait). Eski 8 sahnelik iskelet 5 sahneye sıkıştırıldı: `1 Tanışma → 2 Maceraya çağrı → 3 Zorluk → 4 Cesaret & Zafer → 5 Sıcak dönüş`. Mevcut 8/12/16 sayfalık paket tanımları, deneme + matbaa kararından sonra bu formata göre yeniden yazılacak.
 - **Dil:** Başta yalnızca Türkçe.
 - **Benzerlik hedefi:** Çocuk karaktere **"tanınır ama stilize"** benzemeli (birebir/fotoğraf gerçekliği şart değil).
 - **Sanat stili:** Başlangıçta **suluboya / yumuşak illüstrasyon** (yüz tutarlılığını en çok affeden, en az riskli stil). 3D Pixar tarzı ileride "premium" seçenek olabilir. Karar netleşmeden önce ilk gerçek çıktılarla suluboya vs 3D karşılaştırması yapılacak.
-- **Hikaye motoru:** AI serbest yazmaz. Her tema **8 sahnelik SABİT İSKELET + değişkenler** üzerine kurulur; AI sadece çocuğun adı/görünümü ve kullanıcı seçimlerine göre boşlukları doldurur. İskelet:
-  `1 Tanışma → 2 Çağrı → 3 Eşik → 4 Karşılaşma → 5 Zorluk → 6 Cesaret → 7 Zafer → 8 Sıcak dönüş`
+- **Hikaye motoru:** AI serbest yazmaz. Her tema **5 sahnelik SABİT İSKELET + değişkenler** üzerine kurulur (2026-07-07'de 8'den 5'e indirildi, format kararıyla birlikte); AI sadece çocuğun adı/görünümü ve kullanıcı seçimlerine göre boşlukları doldurur. İskelet:
+  `1 Tanışma → 2 Maceraya çağrı → 3 Zorluk → 4 Cesaret & Zafer → 5 Sıcak dönüş`
 - **Temalar (3 ile başla, şiddet/çatışma YOK — yardım odaklı):**
   1. **Hayvan Dostu Macera** (hayvan + mekân + yardım edilen şey)
   2. **Süper Kahraman** (güç + kime yardım + mekân) — "kötüyü yenmek" değil "yardım etmek"

@@ -119,16 +119,16 @@ export const mockProvider: AiProvider = {
   async writeStory(input: WriteStoryInput): Promise<WriteStoryResult> {
     const title = buildTitle(input);
     if (input.scope === "teaser") return { title, provider: "mock" };
-    // 8 sahnelik sabit iskelet — gerçek LLM her sahnenin metnini yazacak.
+    // 5 sahnelik sabit iskelet (Tanışma → Çağrı → Zorluk → Zafer → Dönüş).
+    // Her sahne = 1 yazı sayfası (4-8 cümle, büyük punto) + 1 resim sayfası.
+    // Gerçek LLM her sahnenin metnini bu uzunlukta yazacak; buradaki şablon
+    // sadece boru hattını test etmek için.
     const pages = [
-      `Bir varmış bir yokmuş, ${input.childName} adında ${input.age} yaşında bir çocuk varmış.`,
-      "Bir gün beklenmedik bir çağrı gelmiş...",
-      "Cesaretini toplayıp eşikten geçmiş.",
-      "Yolda yeni bir dostla karşılaşmış.",
-      "Ama önlerinde büyük bir zorluk varmış.",
-      `${input.childName} hiç pes etmemiş.`,
-      "Ve sonunda başarmış!",
-      "Eve döndüğünde herkes onu sıcacık kucaklamış.",
+      `Bir varmış bir yokmuş, ${input.childName} adında ${input.age} yaşında bir çocuk varmış. Gözleri pırıl pırıl, yüreği kocaman mıymış? Hem de nasıl! ${input.childName} her sabah penceresinden dünyaya merakla bakarmış. "Acaba bugün ne keşfedeceğim?" dermiş.`,
+      `Derken bir gün, hiç beklenmedik bir şey olmuş. ${input.childName}'i bekleyen büyük bir macera varmış! Önce biraz heyecanlanmış, sonra derin bir nefes almış. Çünkü meraklı çocuklar maceralardan korkmazmış. Ve yola koyulmuş.`,
+      `Ama yol hiç de kolay değilmiş. Karşısına kocaman bir zorluk çıkmış. ${input.childName} bir an durup düşünmüş. "Pes mi etsem?" demiş içinden. Sonra başını iki yana sallamış: "Asla!"`,
+      `${input.childName} tüm cesaretini toplamış. Bir, iki, üç... ve başarmış! Etraftan alkışlar yükselmiş. Meğer cesaret, tam da böyle bir şeymiş: korksan bile denemekmiş.`,
+      `Akşam olunca ${input.childName} evine dönmüş. Onu sımsıcak bir kucak bekliyormuş. O gece yatağına uzanırken gülümsemiş. Çünkü artık biliyormuş: en güzel maceralar, yürekten geçermiş. Ve ${input.childName} çok ama çok mutlu uyumuş.`,
     ];
     return { title, pages, provider: "mock" };
   },

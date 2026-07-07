@@ -29,12 +29,14 @@ export type GenerateImageResult = {
 };
 
 export type WriteStoryInput = StoryInput & {
-  scope: "teaser" | "full"; // teaser: sadece başlık; full: 8 sayfa metin
+  scope: "teaser" | "full"; // teaser: sadece başlık; full: 5 sahnelik metin
 };
 
 export type WriteStoryResult = {
   title: string;
-  pages?: string[]; // scope "full" ise 8 sayfalık anlatı
+  // scope "full" ise 5 sahne metni (sahne başına 4-8 cümle).
+  // Kitapta her sahne bir çift sayfa olur: solda bu metin, sağda görsel.
+  pages?: string[];
   provider: string;
 };
 
