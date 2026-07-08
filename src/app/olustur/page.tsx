@@ -11,6 +11,12 @@ import {
   PREVIEW_STORAGE_KEY,
   type WizardState,
 } from "@/lib/wizard";
+import {
+  RELATIONS,
+  MAX_COMPANIONS,
+  getRelation,
+  type Companion,
+} from "@/lib/characters";
 
 type FormState = WizardState;
 
@@ -23,6 +29,7 @@ const STEP_TITLES = [
   "Tema",
   "Detaylar",
   "Sevdiği şey",
+  "Yan karakterler",
   "Önizleme",
 ];
 
@@ -150,6 +157,11 @@ export default function CreatePage() {
           options: data.options,
           favorite: data.favorite,
           photoData: data.photoUrl,
+          companions: data.companions.map((c) => ({
+            relationId: c.relationId,
+            name: c.name,
+            photoData: c.photoUrl,
+          })),
         }),
       });
       const json = await res.json();
@@ -376,6 +388,19 @@ export default function CreatePage() {
             </StepShell>
           )}
 
+          {/* 6 — Yan karakterler (opsiyonel, Aile Masalı) */}
+          {step === 6 && (
+            <StepShell
+              title="Masala kimler eşlik etsin?"
+              subtitle={`İsteğe bağlı — anne, baba, kardeş ya da evcil dost. En fazla ${MAX_COMPANIONS} yan karakter ekleyebilirsiniz.`}
+            >
+              <CompanionsStep
+                companions={data.companions}
+                onChange={(companions) => update({ companions })}
+              />
+            </StepShell>
+          )}
+
           {/* 5 — Favori (opsiyonel) */}
           {step === 5 && (
             <StepShell
@@ -396,8 +421,8 @@ export default function CreatePage() {
             </StepShell>
           )}
 
-          {/* 6 — Özet + önizleme */}
-          {step === 6 && (
+          {/* 7 — Özet + önizleme */}
+          {step === 7 && (
             <StepShell
               title="Her şey hazır! ✨"
               subtitle="Özeti kontrol edin ve ücretsiz önizlemenizi oluşturun."
@@ -509,11 +534,23 @@ function Summary({
   data: FormState;
   themeTitle?: string;
 }) {
+  const companions =
+    data.companions.length > 0
+      ? data.companions
+          .map((c) => {
+            const rel = getRelation(c.relationId);
+            return c.name.trim()
+              ? `${rel?.label ?? c.relationId} (${c.name.trim()})`
+              : rel?.label ?? c.relationId;
+          })
+          .join(", ")
+      : "—";
   const rows: [string, string][] = [
     ["Kahraman", data.childName || "—"],
     ["Yaş", data.age ? `${data.age}` : "—"],
     ["Tema", themeTitle ?? "—"],
     ["Sevdiği şey", data.favorite || "—"],
+    ["Yan karakterler", companions],
   ];
   return (
     <div className="flex gap-5 items-center rounded-2xl bg-cream-deep p-5">
@@ -533,6 +570,196 @@ function Summary({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function CompanionsStep({
+  companions,
+  onChange,
+}: {
+  companions: Companion[];
+  onChange: (companions: Companion[]) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [relationId, setRelationId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const resetDraft = () => {
+    setAdding(false);
+    setRelationId(null);
+    setName("");
+    setPhotoUrl(null);
+    setError(null);
+  };
+
+  const handlePhoto = async (file: File | undefined) => {
+    if (!file) return;
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      setError("Lütfen JPG veya PNG formatında bir fotoğraf seçin.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+      setError(`Fotoğraf en fazla ${MAX_PHOTO_MB} MB olabilir.`);
+      return;
+    }
+    try {
+      setPhotoUrl(await photoToDataUrl(file));
+      setError(null);
+    } catch {
+      setError("Fotoğraf okunamadı. Lütfen başka bir dosya deneyin.");
+    }
+  };
+
+  const add = () => {
+    if (!relationId) {
+      setError("Kim olduğunu seçin (anne, kardeş, kedi…).");
+      return;
+    }
+    if (!photoUrl) {
+      setError("Bir fotoğraf yükleyin.");
+      return;
+    }
+    onChange([...companions, { relationId, name: name.trim(), photoUrl }]);
+    resetDraft();
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* Eklenmiş yan karakterler */}
+      {companions.length > 0 && (
+        <ul className="space-y-3">
+          {companions.map((c, i) => {
+            const rel = getRelation(c.relationId);
+            return (
+              <li
+                key={i}
+                className="flex items-center gap-4 rounded-2xl bg-cream-deep p-3"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={c.photoUrl}
+                  alt=""
+                  className="h-14 w-14 rounded-xl object-cover"
+                />
+                <div className="flex-1">
+                  <div className="font-bold text-ink">
+                    {rel?.emoji} {rel?.label ?? c.relationId}
+                  </div>
+                  {c.name && (
+                    <div className="text-sm text-ink-soft">{c.name}</div>
+                  )}
+                </div>
+                <button
+                  onClick={() =>
+                    onChange(companions.filter((_, idx) => idx !== i))
+                  }
+                  className="rounded-full px-3 py-1.5 text-sm font-bold text-ink-soft hover:text-red-600 transition"
+                >
+                  Kaldır ✕
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* Ekleme formu / butonu */}
+      {adding ? (
+        <div className="rounded-2xl border-2 border-primary/30 bg-primary-soft/30 p-5 space-y-4">
+          <div>
+            <p className="font-bold text-ink mb-2">Çocuğun nesi oluyor?</p>
+            <div className="flex flex-wrap gap-2">
+              {RELATIONS.map((r) => (
+                <ChoiceChip
+                  key={r.id}
+                  active={relationId === r.id}
+                  onClick={() => setRelationId(r.id)}
+                  emoji={r.emoji}
+                  label={r.label}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="font-bold text-ink mb-2">
+              Adı <span className="font-normal text-ink-soft">(isteğe bağlı)</span>
+            </p>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Örn. Pamuk"
+              className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+            />
+          </div>
+          <div>
+            <p className="font-bold text-ink mb-2">Fotoğrafı</p>
+            <label className="block cursor-pointer">
+              <input
+                type="file"
+                accept="image/jpeg,image/png"
+                className="hidden"
+                onChange={(e) => handlePhoto(e.target.files?.[0])}
+              />
+              <div className="rounded-xl border-2 border-dashed border-primary/40 bg-white p-4 text-center hover:bg-primary-soft/40 transition-colors">
+                {photoUrl ? (
+                  <div className="flex items-center justify-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photoUrl}
+                      alt=""
+                      className="h-16 w-16 rounded-xl object-cover"
+                    />
+                    <span className="text-sm text-ink-soft">
+                      Değiştirmek için tıklayın
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-sm font-semibold text-ink-soft">
+                    📸 Fotoğraf seçmek için tıklayın
+                  </span>
+                )}
+              </div>
+            </label>
+          </div>
+          {error && (
+            <p className="text-sm font-semibold text-red-600">⚠️ {error}</p>
+          )}
+          <div className="flex gap-3">
+            <button
+              onClick={add}
+              className="rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-white shadow-[var(--shadow-soft)] hover:bg-primary-dark transition"
+            >
+              Ekle ✓
+            </button>
+            <button
+              onClick={resetDraft}
+              className="rounded-full px-5 py-2.5 text-sm font-bold text-ink-soft hover:text-ink transition"
+            >
+              Vazgeç
+            </button>
+          </div>
+        </div>
+      ) : companions.length < MAX_COMPANIONS ? (
+        <button
+          onClick={() => setAdding(true)}
+          className="w-full rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/30 px-6 py-5 font-bold text-primary-dark hover:bg-primary-soft transition"
+        >
+          + Yan karakter ekle
+        </button>
+      ) : (
+        <p className="text-sm text-ink-soft text-center">
+          En fazla {MAX_COMPANIONS} yan karakter eklenebilir.
+        </p>
+      )}
+
+      <p className="text-xs text-ink-soft">
+        Bu adımı boş bırakabilirsiniz — masal yalnızca çocuğunuzla da harika
+        olur. 🔒 Tüm fotoğraflar yalnızca kitabınız için kullanılır.
+      </p>
     </div>
   );
 }

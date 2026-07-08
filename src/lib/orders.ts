@@ -5,6 +5,7 @@ import { randomUUID } from "crypto";
 import { db } from "./db";
 import { PACKAGES } from "./brand";
 import { getTheme } from "./themes";
+import { getRelation, MAX_COMPANIONS } from "./characters";
 
 // Sipariş durumları:
 //   odeme-bekliyor → ödeme sistemi bağlanana kadar tüm siparişler burada
@@ -37,6 +38,12 @@ export const ORDER_STATUS_LABELS: Record<
   iptal: { emoji: "❌", text: "İptal edildi" },
 };
 
+export type OrderCompanion = {
+  relationId: string;
+  name?: string;
+  photoData: string;
+};
+
 export type NewOrderInput = {
   childName: string;
   age: number;
@@ -45,6 +52,7 @@ export type NewOrderInput = {
   options: Record<string, string>;
   favorite?: string;
   photoData?: string | null;
+  companions?: OrderCompanion[];
   packageId: string;
   customer: {
     name: string;
@@ -68,6 +76,7 @@ export type Order = {
   options: Record<string, string>;
   favorite: string | null;
   photoData: string | null;
+  companions: OrderCompanion[];
   packageId: string;
   price: number;
   customerName: string;
@@ -121,6 +130,32 @@ function validate(input: NewOrderInput) {
     throw new OrderValidationError("Fotoğraf verisi geçersiz.");
   }
 
+  if (input.companions) {
+    if (
+      !Array.isArray(input.companions) ||
+      input.companions.length > MAX_COMPANIONS
+    ) {
+      throw new OrderValidationError(
+        `En fazla ${MAX_COMPANIONS} yan karakter eklenebilir.`
+      );
+    }
+    for (const c of input.companions) {
+      if (!getRelation(c.relationId)) {
+        throw new OrderValidationError("Yan karakter yakınlığı geçersiz.");
+      }
+      if (
+        typeof c.photoData !== "string" ||
+        !c.photoData.startsWith("data:image/") ||
+        c.photoData.length > MAX_PHOTO_DATA_CHARS
+      ) {
+        throw new OrderValidationError("Yan karakter fotoğrafı geçersiz.");
+      }
+      if (c.name && (typeof c.name !== "string" || c.name.length > 40)) {
+        throw new OrderValidationError("Yan karakter adı çok uzun.");
+      }
+    }
+  }
+
   const customer = {
     name: requireText(input.customer?.name, "Ad soyad", 3),
     email: requireText(input.customer?.email, "E-posta", 5),
@@ -144,9 +179,9 @@ export function createOrder(input: NewOrderInput): Order {
   db.prepare(
     `INSERT INTO orders (
       id, child_name, age, gender, theme_id, options_json, favorite,
-      photo_data, package_id, price, customer_name, email, phone,
+      photo_data, companions_json, package_id, price, customer_name, email, phone,
       address, district, city, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     childName,
@@ -156,6 +191,7 @@ export function createOrder(input: NewOrderInput): Order {
     JSON.stringify(input.options),
     input.favorite?.trim() || null,
     input.photoData || null,
+    input.companions?.length ? JSON.stringify(input.companions) : null,
     pkg.id,
     pkg.price,
     customer.name,
@@ -181,6 +217,7 @@ type OrderRow = {
   options_json: string;
   favorite: string | null;
   photo_data: string | null;
+  companions_json: string | null;
   package_id: string;
   price: number;
   customer_name: string;
@@ -262,6 +299,7 @@ export function getOrder(id: string): Order | null {
     options: JSON.parse(row.options_json),
     favorite: row.favorite,
     photoData: row.photo_data,
+    companions: row.companions_json ? JSON.parse(row.companions_json) : [],
     packageId: row.package_id,
     price: row.price,
     customerName: row.customer_name,

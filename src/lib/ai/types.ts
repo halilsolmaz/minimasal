@@ -12,6 +12,13 @@ export type StoryInput = {
   // Çocuğun referans fotoğrafı (data URL). Görsel üretiminde kimlik
   // referansı olarak kullanılır.
   photoData?: string | null;
+  // Yan karakterler (Aile Masalı): yakınlık + isteğe bağlı isim + foto.
+  // Görsel üretiminde ek referans fotoğraf olarak gönderilir.
+  companions?: {
+    relationId: string;
+    name?: string;
+    photoData: string;
+  }[];
 };
 
 export type ImageKind = "cover"; // ileride: "page"

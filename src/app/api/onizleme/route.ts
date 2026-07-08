@@ -7,6 +7,7 @@ import { generateImage, writeStory } from "@/lib/ai";
 import { toWatermarkedPreview } from "@/lib/ai/watermark";
 import { checkTeaserLimits, saveTeaser } from "@/lib/teasers";
 import { getTheme } from "@/lib/themes";
+import { getRelation, MAX_COMPANIONS } from "@/lib/characters";
 
 type PreviewRequest = {
   childName: string;
@@ -16,6 +17,7 @@ type PreviewRequest = {
   options: Record<string, string>;
   favorite?: string;
   photoData?: string | null;
+  companions?: { relationId: string; name?: string; photoData: string }[];
 };
 
 const MAX_PHOTO_DATA_CHARS = 2_000_000;
@@ -41,6 +43,22 @@ function validationError(body: PreviewRequest): string | null {
       body.photoData.length > MAX_PHOTO_DATA_CHARS)
   )
     return "Fotoğraf verisi geçersiz.";
+
+  if (body.companions) {
+    if (!Array.isArray(body.companions) || body.companions.length > MAX_COMPANIONS)
+      return `En fazla ${MAX_COMPANIONS} yan karakter eklenebilir.`;
+    for (const c of body.companions) {
+      if (!getRelation(c.relationId)) return "Yan karakter yakınlığı geçersiz.";
+      if (
+        typeof c.photoData !== "string" ||
+        !c.photoData.startsWith("data:image/") ||
+        c.photoData.length > MAX_PHOTO_DATA_CHARS
+      )
+        return "Yan karakter fotoğrafı geçersiz.";
+      if (c.name && (typeof c.name !== "string" || c.name.length > 40))
+        return "Yan karakter adı çok uzun.";
+    }
+  }
   return null;
 }
 

@@ -2,6 +2,8 @@
 // Veri sessionStorage'da yaşar: sekme kapanınca silinir (çocuk fotoğrafı
 // tarayıcıda kalıcı tutulmaz).
 
+import type { Companion } from "./characters";
+
 export type WizardState = {
   photoUrl: string | null; // küçültülmüş data URL
   photoName: string | null;
@@ -11,6 +13,7 @@ export type WizardState = {
   themeId: string | null;
   options: Record<string, string>; // optionId -> choiceId
   favorite: string;
+  companions: Companion[]; // yan karakterler (opsiyonel, max MAX_COMPANIONS)
 };
 
 export const WIZARD_STORAGE_KEY = "minimasal-olustur";
@@ -25,6 +28,7 @@ export const initialWizardState: WizardState = {
   themeId: null,
   options: {},
   favorite: "",
+  companions: [],
 };
 
 export function loadWizardState(): { step: number; data: WizardState } | null {

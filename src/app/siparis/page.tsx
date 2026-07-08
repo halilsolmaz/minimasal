@@ -80,6 +80,11 @@ export default function CheckoutPage() {
           options: wizard.options,
           favorite: wizard.favorite,
           photoData: wizard.photoUrl,
+          companions: wizard.companions.map((c) => ({
+            relationId: c.relationId,
+            name: c.name,
+            photoData: c.photoUrl,
+          })),
           packageId,
           customer,
         }),

@@ -42,6 +42,15 @@ function createDb(): Database.Database {
       note          TEXT
     )
   `);
+  // Şema güncellemeleri: var olan tabloya sonradan eklenen kolonlar.
+  // (CREATE TABLE IF NOT EXISTS mevcut tabloyu değiştirmez.)
+  const orderCols = (
+    db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]
+  ).map((c) => c.name);
+  if (!orderCols.includes("companions_json")) {
+    // Yan karakterler (Aile Masalı, 2026-07-08): [{relationId, name, photoData}]
+    db.exec("ALTER TABLE orders ADD COLUMN companions_json TEXT");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS teasers (
       id          TEXT PRIMARY KEY,

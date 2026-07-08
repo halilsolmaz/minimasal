@@ -9,6 +9,7 @@
 // entegrasyonu ilerde eklenecek; kapak kalitesi önce geliyor.
 
 import { getTheme } from "@/lib/themes";
+import { getRelation } from "@/lib/characters";
 import { mockProvider } from "./mock";
 import type {
   AiProvider,
@@ -52,6 +53,20 @@ function sceneFor(input: GenerateImageInput): string {
   }
 }
 
+// Yan karakter tarifleri: referans fotoğrafların sırasıyla eşleşir.
+// (1. foto her zaman çocuk; 2., 3., ... yan karakterler.)
+function companionsDescription(input: GenerateImageInput): string {
+  const list = input.companions ?? [];
+  if (list.length === 0) return "";
+  const parts = list.map((c, i) => {
+    const rel = getRelation(c.relationId);
+    const who = rel?.en ?? "companion";
+    const named = c.name?.trim() ? ` (named ${c.name.trim()})` : "";
+    return `Reference photo ${i + 2} is the child's ${who}${named} — also keep them recognizable but stylized.`;
+  });
+  return ` The story also features side characters: ${parts.join(" ")} Include them in the scene together with the child.`;
+}
+
 function coverPrompt(input: GenerateImageInput): string {
   const gender = input.gender === "kiz" ? "girl" : "boy";
   const favorite = input.favorite?.trim()
@@ -59,8 +74,9 @@ function coverPrompt(input: GenerateImageInput): string {
     : "";
   return (
     `Children's picture book COVER illustration. ${STYLE_PROMPT}. ` +
-    `The hero is the ${input.age}-year-old ${gender} from the reference photo — ` +
+    `The hero is the ${input.age}-year-old ${gender} from reference photo 1 — ` +
     `keep the face recognizable but stylized as a friendly storybook character, NOT photorealistic. ` +
+    companionsDescription(input) +
     sceneFor(input) +
     favorite +
     ` Render the book title text "${input.title}" prominently at the top in a playful, ` +
@@ -69,7 +85,7 @@ function coverPrompt(input: GenerateImageInput): string {
   );
 }
 
-async function callFal(prompt: string, photoDataUrl: string): Promise<Buffer> {
+async function callFal(prompt: string, photoDataUrls: string[]): Promise<Buffer> {
   const key = process.env.FAL_KEY;
   if (!key) throw new Error("FAL_KEY tanımlı değil (.env.local).");
 
@@ -81,7 +97,7 @@ async function callFal(prompt: string, photoDataUrl: string): Promise<Buffer> {
     },
     body: JSON.stringify({
       prompt,
-      image_urls: [photoDataUrl], // fal data URI kabul eder
+      image_urls: photoDataUrls, // fal data URI kabul eder; 1. foto çocuk
       num_images: 1,
       aspect_ratio: "3:4",
       resolution: "1K",
@@ -171,7 +187,17 @@ function storyPrompt(input: WriteStoryInput): string {
   const favorite = input.favorite?.trim()
     ? ` Çocuğun sevdiği şey: ${input.favorite.trim()} — hikayeye zorlamadan küçük bir dokunuş olarak yedir.`
     : "";
-  const hero = `Kahraman: ${input.childName}, ${input.age} yaşında ${input.gender === "kiz" ? "kız" : "erkek"} çocuk. Tema: ${theme?.title ?? input.themeId}. Seçimler: ${choices}.${favorite}`;
+  const companionList = (input.companions ?? [])
+    .map((c) => {
+      const rel = getRelation(c.relationId);
+      const label = rel?.label ?? c.relationId;
+      return c.name?.trim() ? `${label} (adı: ${c.name.trim()})` : label;
+    })
+    .join(", ");
+  const companions = companionList
+    ? ` Hikayede çocuğa eşlik eden yan karakterler: ${companionList}. Onları hikayeye doğal biçimde kat — her sahnede olmak zorunda değiller ama hikayenin parçası olsunlar. imageBrief'lerde hangi karakterlerin sahnede olduğunu açıkça belirt (örn. 'the child and her mother').`
+    : "";
+  const hero = `Kahraman: ${input.childName}, ${input.age} yaşında ${input.gender === "kiz" ? "kız" : "erkek"} çocuk. Tema: ${theme?.title ?? input.themeId}. Seçimler: ${choices}.${favorite}${companions}`;
 
   if (input.scope === "teaser") {
     return (
@@ -237,7 +263,11 @@ export const falProvider: AiProvider = {
     if (!input.photoData?.startsWith("data:image/")) {
       throw new Error("Görsel üretimi için referans fotoğraf gerekli.");
     }
-    const image = await callFal(coverPrompt(input), input.photoData);
+    const refs = [
+      input.photoData,
+      ...(input.companions ?? []).map((c) => c.photoData),
+    ];
+    const image = await callFal(coverPrompt(input), refs);
     return { image, provider: "fal:nano-banana-pro" };
   },
 

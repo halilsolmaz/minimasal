@@ -100,6 +100,7 @@ src/
   lib/
     brand.ts          # KOLAY DEĞİŞİR: marka adı, slogan, PACKAGES (10/16/20 sayfa = 5/8/10 sahne = ₺499/699/899, fiyatlar geçici)
     themes.ts         # KOLAY DEĞİŞİR: 3 tema + her temanın seçenekleri (StoryTheme tipi)
+    characters.ts     # KOLAY DEĞİŞİR: yan karakter yakınlıkları + MAX_COMPANIONS (Aile Masalı)
     wizard.ts         # sihirbaz durumu: tip + sessionStorage yükle/kaydet (olustur ↔ siparis paylaşır)
     db.ts             # SQLite bağlantısı (better-sqlite3, dosya: data/minimasal.db — gitignore'da)
     orders.ts         # sipariş oluştur/oku/listele/durum + TÜM doğrulama; fiyat asla istemciden alınmaz
@@ -143,7 +144,7 @@ data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 5. **Deploy** (hosting + domain; SQLite → hosted DB geçişi gerekir).
 
 ### Fikir rafı (kurucu önerileri, sırası gelince)
-- **Çoklu karakter / "Aile Masalı" (2026-07-08):** anne + çocuk + evcil hayvan aynı kitapta. Nano Banana Pro 14 referans foto / 5 kişi tutarlılığı destekliyor; sihirbaza "kim eşlik etsin?" adımı + ek foto yükleme gerekir. Tek kahramanlı ürün oturduktan sonra premium paket olarak.
+- **Çoklu karakter / "Aile Masalı" — ALTYAPI KURULDU (2026-07-08, kurucu istedi):** Sihirbazda "Yan karakterler" adımı (7/8): fotoğraf + yakınlık (anne/baba/kardeş/nine/dede/teyze/köpek/kedi/balık/kuş, liste `src/lib/characters.ts`) + isteğe bağlı isim. Max 3 yan karakter (`MAX_COMPANIONS`, çocuk dahil 4 = Nano Banana Pro'nun 5 kişi garantisinin içinde). Üç pakette de açık. Veri: sipariş tablosunda `companions_json`; istemler: hikayeye ve görsel üretimine (çoklu referans foto) bağlı. Uçtan uca test edildi (UI+DB+admin) ama **gerçek AI üretimiyle henüz DENENMEDİ** — kurucu "yap" deyince anne/kedi fotoğrafıyla test.
 - **İç sayfa maliyet düşürme:** kapak Pro'da kalsın; iç sayfalar için Nano Banana 2 ($0.08) ve FLUX Kontext pro ($0.04) karşılaştırma testi yapılacak (kurucu "yap" deyince; aynı Defne girdisiyle).
 
 **Sıradaki adım:** AI entegrasyonu (kurucu "biraz geç girelim" dedi — hazır olduğunda A/B yolunu seçecek) veya içerik sayfaları.

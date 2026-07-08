@@ -11,6 +11,7 @@ import {
 } from "@/lib/orders";
 import { PACKAGES } from "@/lib/brand";
 import { getTheme } from "@/lib/themes";
+import { getRelation } from "@/lib/characters";
 import { setStatusAction } from "../actions";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -139,6 +140,35 @@ export default async function AdminOrderPage({
             Bu, önizleme boyutuna küçültülmüş kopyadır; baskı için tam
             çözünürlüklü yükleme AI entegrasyonuyla gelecek.
           </p>
+
+          {order.companions.length > 0 && (
+            <>
+              <h2 className="mt-6 font-bold text-ink">Yan karakterler</h2>
+              <ul className="mt-3 space-y-3">
+                {order.companions.map((c, i) => {
+                  const rel = getRelation(c.relationId);
+                  return (
+                    <li key={i} className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={c.photoData}
+                        alt=""
+                        className="h-14 w-14 rounded-xl object-cover"
+                      />
+                      <div className="text-sm">
+                        <div className="font-bold text-ink">
+                          {rel?.emoji} {rel?.label ?? c.relationId}
+                        </div>
+                        {c.name && (
+                          <div className="text-ink-soft">{c.name}</div>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
         </aside>
       </main>
     </div>
