@@ -20,6 +20,12 @@ import type {
 
 const EDIT_ENDPOINT = "https://fal.run/fal-ai/nano-banana-pro/edit";
 
+// Hikaye LLM'i: fal any-llm ucu (aynı API anahtarı, ~$0.001/istek).
+// Model kataloğu 2026-07-08'de OpenAPI şemasından teyit edildi.
+// Türkçe masal dili için en güçlü seçenek: Claude Sonnet 4.5.
+const LLM_ENDPOINT = "https://fal.run/fal-ai/any-llm";
+const LLM_MODEL = "anthropic/claude-sonnet-4.5";
+
 // Suluboya, MVP'nin kilitli stil kararı (AGENTS.md). 3D karşılaştırması
 // için bu sabit değiştirilip aynı girdiyle tekrar üretim yapılabilir.
 const STYLE_PROMPT =
@@ -103,6 +109,127 @@ async function callFal(prompt: string, photoDataUrl: string): Promise<Buffer> {
   return Buffer.from(await imgRes.arrayBuffer());
 }
 
+/* ---------- Hikaye üretimi (LLM) ---------- */
+
+// Yaş bandları — 3 yaş ile 9 yaş aynı masalı okuyamaz (kurucu kararı,
+// 2026-07-08). Sihirbazda seçilen yaş buradaki kurallara çevrilir.
+function ageStyle(age: number): string {
+  if (age <= 4) {
+    return (
+      "3-4 yaş için yaz: ÇOK kısa cümleler (4-6 kelime), bol tekrar ve " +
+      "ses oyunları (pat pat, vızzz gibi), sahne başına 4-5 cümle, soyut " +
+      "kavram yok, her şey somut ve görülebilir."
+    );
+  }
+  if (age <= 6) {
+    return (
+      "5-6 yaş için yaz: basit ama akıcı cümleler, hafif mizah, sahne " +
+      "başına 5-6 cümle, basit duygular (merak, heyecan, sevinç)."
+    );
+  }
+  return (
+    "7-9 yaş için yaz: daha zengin kelime dağarcığı, sahne başına 6-8 " +
+    "cümle, hafif gerilim ve kahramanın iç sesi ('Acaba başarabilir " +
+    "miyim?'), sonda küçük ama vaaz vermeyen bir ders."
+  );
+}
+
+// Pakete göre sabit sahne iskeletleri — LLM bu yapıyı DEĞİŞTİREMEZ.
+function skeletonFor(sceneCount: number): string[] {
+  if (sceneCount >= 10) {
+    return [
+      "Tanışma", "Maceraya çağrı", "Eşikten geçiş", "Yeni bir dost",
+      "İlk karşılaşma", "Zorluk", "Umutsuz an", "Cesaret",
+      "Zafer", "Sıcak dönüş",
+    ];
+  }
+  if (sceneCount >= 8) {
+    return [
+      "Tanışma", "Maceraya çağrı", "Eşikten geçiş", "Karşılaşma",
+      "Zorluk", "Cesaret", "Zafer", "Sıcak dönüş",
+    ];
+  }
+  return ["Tanışma", "Maceraya çağrı", "Zorluk", "Cesaret ve Zafer", "Sıcak dönüş"];
+}
+
+const STORY_SYSTEM_PROMPT =
+  "Sen usta bir Türkçe çocuk kitabı yazarısın. Kurallar: şiddet, korku, " +
+  "kötü karakter ve tehlike hissi YOK; kahraman kimseyi yenmez, birine " +
+  "yardım eder. Sıcak, ritmik, sesli okumaya uygun masal dili kullan " +
+  "('Bir varmış bir yokmuş' tadında). Çocuğun adını sık kullan. " +
+  "İstenen JSON formatının DIŞINA asla çıkma, açıklama ekleme.";
+
+function storyPrompt(input: WriteStoryInput): string {
+  const theme = getTheme(input.themeId);
+  const choices = (theme?.options ?? [])
+    .map((opt) => {
+      const c = opt.choices.find((x) => x.id === input.options[opt.id]);
+      return c ? `${opt.question} → ${c.label}` : null;
+    })
+    .filter(Boolean)
+    .join("; ");
+  const favorite = input.favorite?.trim()
+    ? ` Çocuğun sevdiği şey: ${input.favorite.trim()} — hikayeye zorlamadan küçük bir dokunuş olarak yedir.`
+    : "";
+  const hero = `Kahraman: ${input.childName}, ${input.age} yaşında ${input.gender === "kiz" ? "kız" : "erkek"} çocuk. Tema: ${theme?.title ?? input.themeId}. Seçimler: ${choices}.${favorite}`;
+
+  if (input.scope === "teaser") {
+    return (
+      `${hero}\n\nBu masal için etkileyici, kısa bir kitap başlığı üret ` +
+      `(en fazla 5 kelime, çocuğun adı geçsin). ` +
+      `SADECE şu JSON'u döndür: {"title": "..."}`
+    );
+  }
+
+  const beats = skeletonFor(input.scenes ?? 5);
+  return (
+    `${hero}\n\n${ageStyle(input.age)}\n\n` +
+    `${beats.length} sahnelik bir masal yaz. Sahne iskeleti SABİT, sırayı ve işlevi değiştirme:\n` +
+    beats.map((b, i) => `${i + 1}. ${b}`).join("\n") +
+    `\n\nHer sahne için iki alan üret:\n` +
+    `- "pageText": sayfaya basılacak masal metni (yukarıdaki yaş kuralına uygun cümle sayısı)\n` +
+    `- "imageBrief": o sahnenin İngilizce görsel tarifi (çocuk ne yapıyor, nerede, hangi duygu, ` +
+    `hangi detaylar; 1-2 cümle; 'the child' de, isim yazma)\n\n` +
+    `SADECE şu JSON'u döndür: {"title": "...", "scenes": [{"pageText": "...", "imageBrief": "..."}, ...]}`
+  );
+}
+
+// LLM cevabından JSON'u ayıkla (model bazen kod bloğuna sarar).
+function extractJson<T>(text: string): T {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start === -1 || end <= start) throw new Error("LLM cevabında JSON yok.");
+  return JSON.parse(text.slice(start, end + 1)) as T;
+}
+
+async function callLlm(prompt: string): Promise<string> {
+  const key = process.env.FAL_KEY;
+  if (!key) throw new Error("FAL_KEY tanımlı değil (.env.local).");
+  const res = await fetch(LLM_ENDPOINT, {
+    method: "POST",
+    headers: {
+      Authorization: `Key ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: LLM_MODEL,
+      system_prompt: STORY_SYSTEM_PROMPT,
+      prompt,
+      temperature: 0.8,
+      max_tokens: 4000,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`fal.ai LLM hata (${res.status}): ${body.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { output?: string; error?: string };
+  if (json.error || !json.output) {
+    throw new Error(`fal.ai LLM hata: ${json.error ?? "boş cevap"}`);
+  }
+  return json.output;
+}
+
 export const falProvider: AiProvider = {
   name: "fal",
 
@@ -114,9 +241,38 @@ export const falProvider: AiProvider = {
     return { image, provider: "fal:nano-banana-pro" };
   },
 
-  // Başlık şimdilik şablondan; gerçek LLM hikayesi sonraki adım.
   async writeStory(input: WriteStoryInput): Promise<WriteStoryResult> {
-    const result = await mockProvider.writeStory(input);
-    return { ...result, provider: "fal(template-story)" };
+    try {
+      const output = await callLlm(storyPrompt(input));
+      if (input.scope === "teaser") {
+        const { title } = extractJson<{ title: string }>(output);
+        if (!title?.trim()) throw new Error("Başlık boş geldi.");
+        return { title: title.trim(), provider: `fal:${LLM_MODEL}` };
+      }
+      const parsed = extractJson<{
+        title: string;
+        scenes: { pageText: string; imageBrief: string }[];
+      }>(output);
+      const expected = skeletonFor(input.scenes ?? 5).length;
+      if (!parsed.title?.trim() || parsed.scenes?.length !== expected) {
+        throw new Error(
+          `LLM çıktısı eksik (başlık veya ${expected} sahne yok).`
+        );
+      }
+      return {
+        title: parsed.title.trim(),
+        scenes: parsed.scenes,
+        provider: `fal:${LLM_MODEL}`,
+      };
+    } catch (err) {
+      // Teaser'da başlık kritik değil — şablona düş, akış kırılmasın.
+      // Tam kitapta ise hata yukarı gitsin (admin görecek, tekrar denenecek).
+      if (input.scope === "teaser") {
+        console.warn("LLM başlık üretemedi, şablona düşüldü:", err);
+        const fallback = await mockProvider.writeStory(input);
+        return { ...fallback, provider: "fal(template-fallback)" };
+      }
+      throw err;
+    }
   },
 };

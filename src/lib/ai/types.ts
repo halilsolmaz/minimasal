@@ -29,14 +29,21 @@ export type GenerateImageResult = {
 };
 
 export type WriteStoryInput = StoryInput & {
-  scope: "teaser" | "full"; // teaser: sadece başlık; full: 5 sahnelik metin
+  scope: "teaser" | "full"; // teaser: sadece başlık; full: sahne metinleri
+  scenes?: number; // full için sahne sayısı (pakete göre 5/8/10; vars. 5)
+};
+
+// Bir sahne = kitapta bir çift sayfa: solda pageText, sağda görsel.
+// imageBrief, o sahnenin görsel üretim istemine giren İngilizce tariftir —
+// metin ile resmin uyumunu bu bağ sağlar (yazar tarif eder, ressam çizer).
+export type StoryScene = {
+  pageText: string; // sayfaya basılacak masal metni (yaşa göre 4-8 cümle)
+  imageBrief: string; // sahnenin görsel tarifi (İngilizce, prompt'a girer)
 };
 
 export type WriteStoryResult = {
   title: string;
-  // scope "full" ise 5 sahne metni (sahne başına 4-8 cümle).
-  // Kitapta her sahne bir çift sayfa olur: solda bu metin, sağda görsel.
-  pages?: string[];
+  scenes?: StoryScene[]; // scope "full" ise pakete göre 5/8/10 sahne
   provider: string;
 };
 

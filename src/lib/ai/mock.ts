@@ -121,15 +121,31 @@ export const mockProvider: AiProvider = {
     if (input.scope === "teaser") return { title, provider: "mock" };
     // 5 sahnelik sabit iskelet (Tanışma → Çağrı → Zorluk → Zafer → Dönüş).
     // Her sahne = 1 yazı sayfası (4-8 cümle, büyük punto) + 1 resim sayfası.
-    // Gerçek LLM her sahnenin metnini bu uzunlukta yazacak; buradaki şablon
-    // sadece boru hattını test etmek için.
-    const pages = [
-      `Bir varmış bir yokmuş, ${input.childName} adında ${input.age} yaşında bir çocuk varmış. Gözleri pırıl pırıl, yüreği kocaman mıymış? Hem de nasıl! ${input.childName} her sabah penceresinden dünyaya merakla bakarmış. "Acaba bugün ne keşfedeceğim?" dermiş.`,
-      `Derken bir gün, hiç beklenmedik bir şey olmuş. ${input.childName}'i bekleyen büyük bir macera varmış! Önce biraz heyecanlanmış, sonra derin bir nefes almış. Çünkü meraklı çocuklar maceralardan korkmazmış. Ve yola koyulmuş.`,
-      `Ama yol hiç de kolay değilmiş. Karşısına kocaman bir zorluk çıkmış. ${input.childName} bir an durup düşünmüş. "Pes mi etsem?" demiş içinden. Sonra başını iki yana sallamış: "Asla!"`,
-      `${input.childName} tüm cesaretini toplamış. Bir, iki, üç... ve başarmış! Etraftan alkışlar yükselmiş. Meğer cesaret, tam da böyle bir şeymiş: korksan bile denemekmiş.`,
-      `Akşam olunca ${input.childName} evine dönmüş. Onu sımsıcak bir kucak bekliyormuş. O gece yatağına uzanırken gülümsemiş. Çünkü artık biliyormuş: en güzel maceralar, yürekten geçermiş. Ve ${input.childName} çok ama çok mutlu uyumuş.`,
+    // Gerçek LLM (fal.ts) her sahneyi yaşa göre yazacak; bu şablon sadece
+    // boru hattını anahtarsız test etmek için.
+    const n = input.childName;
+    const scenes = [
+      {
+        pageText: `Bir varmış bir yokmuş, ${n} adında ${input.age} yaşında bir çocuk varmış. Gözleri pırıl pırıl, yüreği kocaman mıymış? Hem de nasıl! ${n} her sabah penceresinden dünyaya merakla bakarmış. "Acaba bugün ne keşfedeceğim?" dermiş.`,
+        imageBrief: `The child waking up happily in a cozy bedroom, morning light, looking out the window with curiosity.`,
+      },
+      {
+        pageText: `Derken bir gün, hiç beklenmedik bir şey olmuş. ${n}'i bekleyen büyük bir macera varmış! Önce biraz heyecanlanmış, sonra derin bir nefes almış. Çünkü meraklı çocuklar maceralardan korkmazmış. Ve yola koyulmuş.`,
+        imageBrief: `The child discovering the call to adventure, eyes wide with excitement, magical sparkles in the air.`,
+      },
+      {
+        pageText: `Ama yol hiç de kolay değilmiş. Karşısına kocaman bir zorluk çıkmış. ${n} bir an durup düşünmüş. "Pes mi etsem?" demiş içinden. Sonra başını iki yana sallamış: "Asla!"`,
+        imageBrief: `The child facing a big (but not scary) obstacle on the path, determined expression, hands on hips.`,
+      },
+      {
+        pageText: `${n} tüm cesaretini toplamış. Bir, iki, üç... ve başarmış! Etraftan alkışlar yükselmiş. Meğer cesaret, tam da böyle bir şeymiş: korksan bile denemekmiş.`,
+        imageBrief: `The child triumphant, arms raised in joy, warm celebration around, confetti-like sparkles.`,
+      },
+      {
+        pageText: `Akşam olunca ${n} evine dönmüş. Onu sımsıcak bir kucak bekliyormuş. O gece yatağına uzanırken gülümsemiş. Çünkü artık biliyormuş: en güzel maceralar, yürekten geçermiş. Ve ${n} çok ama çok mutlu uyumuş.`,
+        imageBrief: `The child back home at dusk, warm hug, then sleeping peacefully with a gentle smile, cozy night lighting.`,
+      },
     ];
-    return { title, pages, provider: "mock" };
+    return { title, scenes, provider: "mock" };
   },
 };
