@@ -1,11 +1,13 @@
 // Sipariş oluşturma API'si. Doğrulama ve fiyat sunucuda (src/lib/orders.ts).
 // Ödeme sistemi bağlanana kadar siparişler "odeme-bekliyor" durumunda kalır.
 
+import { after } from "next/server";
 import {
   createOrder,
   OrderValidationError,
   type NewOrderInput,
 } from "@/lib/orders";
+import { runBookGeneration } from "@/lib/bookRun";
 
 export async function POST(request: Request) {
   let body: NewOrderInput;
@@ -17,6 +19,9 @@ export async function POST(request: Request) {
 
   try {
     const order = createOrder(body);
+    // ⚠️ GEÇİCİ (kurucu isteği): sipariş sonrası kitabı üretip masaüstüne
+    // yazar (src/lib/bookRun.ts). Gerçek üretim hattı kurulunca silinecek.
+    after(() => runBookGeneration(order.id));
     return Response.json({ id: order.id }, { status: 201 });
   } catch (err) {
     if (err instanceof OrderValidationError) {

@@ -56,7 +56,9 @@ function coverSvg(title: string, themeEmojiFallback: string): string {
 
 async function buildCover(input: GenerateImageInput): Promise<Buffer> {
   const theme = getTheme(input.themeId);
-  const base = sharp(Buffer.from(coverSvg(input.title, theme?.emoji ?? "✨")));
+  // İç sayfa mock'unda başlık yerine sahne notu yazılır.
+  const heading = input.kind === "page" ? "İç sayfa (mock)" : input.title;
+  const base = sharp(Buffer.from(coverSvg(heading, theme?.emoji ?? "✨")));
 
   // Çocuğun fotoğrafı geldiyse kapağın ortasına yerleştir — fotoğrafın
   // sunucuya ulaştığını ve boru hattından geçtiğini kanıtlar.

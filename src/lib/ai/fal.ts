@@ -102,6 +102,18 @@ function coverPrompt(input: GenerateImageInput, refDescription: string): string 
   );
 }
 
+// İç sayfa görseli: metni biz basıyoruz, görselde yazı OLMAMALI.
+// Sahne içeriği hikaye yazarının imageBrief'inden gelir.
+function pagePrompt(input: GenerateImageInput, refDescription: string): string {
+  return (
+    `Children's picture book INTERIOR full-page illustration. ${STYLE_PROMPT}. ` +
+    refDescription +
+    (input.sceneBrief?.trim() || sceneFor(input)) +
+    ` Absolutely no text, no words, no letters in the image. ` +
+    `Portrait orientation, no watermarks.`
+  );
+}
+
 async function callFal(prompt: string, photoDataUrls: string[]): Promise<Buffer> {
   const key = process.env.FAL_KEY;
   if (!key) throw new Error("FAL_KEY tanımlı değil (.env.local).");
@@ -281,7 +293,11 @@ export const falProvider: AiProvider = {
       throw new Error("Görsel üretimi için en az bir referans fotoğraf gerekli.");
     }
     const { refs, description } = referenceMap(input);
-    const image = await callFal(coverPrompt(input, description), refs);
+    const prompt =
+      input.kind === "page"
+        ? pagePrompt(input, description)
+        : coverPrompt(input, description);
+    const image = await callFal(prompt, refs);
     return { image, provider: "fal:nano-banana-pro" };
   },
 

@@ -21,11 +21,14 @@ export type StoryInput = {
   }[];
 };
 
-export type ImageKind = "cover"; // ileride: "page"
+export type ImageKind = "cover" | "page";
 
 export type GenerateImageInput = StoryInput & {
   kind: ImageKind;
-  title: string; // kapakta kullanılacak başlık
+  title: string; // kapakta kullanılacak başlık (page için de bağlam olarak)
+  // kind "page" için: hikaye yazarının ürettiği sahne tarifi (imageBrief).
+  // Metin-resim uyumu bu alandan gelir; page üretiminde zorunlu.
+  sceneBrief?: string;
 };
 
 export type GenerateImageResult = {
