@@ -158,22 +158,23 @@ async function callFal(prompt: string, photoDataUrls: string[]): Promise<Buffer>
 
 // Yaş bandları — 3 yaş ile 9 yaş aynı masalı okuyamaz (kurucu kararı,
 // 2026-07-08). Sihirbazda seçilen yaş buradaki kurallara çevrilir.
+// Cümle sayıları 2026-07-08'de kurucu isteğiyle artırıldı (hedef: 8-10).
 function ageStyle(age: number): string {
   if (age <= 4) {
     return (
       "3-4 yaş için yaz: ÇOK kısa cümleler (4-6 kelime), bol tekrar ve " +
-      "ses oyunları (pat pat, vızzz gibi), sahne başına 4-5 cümle, soyut " +
+      "ses oyunları (pat pat, vızzz gibi), sahne başına 7-8 cümle, soyut " +
       "kavram yok, her şey somut ve görülebilir."
     );
   }
   if (age <= 6) {
     return (
       "5-6 yaş için yaz: basit ama akıcı cümleler, hafif mizah, sahne " +
-      "başına 5-6 cümle, basit duygular (merak, heyecan, sevinç)."
+      "başına 8-9 cümle, basit duygular (merak, heyecan, sevinç)."
     );
   }
   return (
-    "7-9 yaş için yaz: daha zengin kelime dağarcığı, sahne başına 6-8 " +
+    "7-9 yaş için yaz: daha zengin kelime dağarcığı, sahne başına 9-10 " +
     "cümle, hafif gerilim ve kahramanın iç sesi ('Acaba başarabilir " +
     "miyim?'), sonda küçük ama vaaz vermeyen bir ders."
   );
