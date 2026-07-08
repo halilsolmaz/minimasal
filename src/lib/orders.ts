@@ -5,7 +5,12 @@ import { randomUUID } from "crypto";
 import { db } from "./db";
 import { PACKAGES } from "./brand";
 import { getTheme } from "./themes";
-import { getRelation, MAX_COMPANIONS } from "./characters";
+import {
+  getRelation,
+  MAX_COMPANIONS,
+  MAX_CHILD_PHOTOS,
+  MAX_COMPANION_PHOTOS,
+} from "./characters";
 
 // Sipariş durumları:
 //   odeme-bekliyor → ödeme sistemi bağlanana kadar tüm siparişler burada
@@ -41,7 +46,7 @@ export const ORDER_STATUS_LABELS: Record<
 export type OrderCompanion = {
   relationId: string;
   name?: string;
-  photoData: string;
+  photoDatas: string[]; // 1-2 referans fotoğraf
 };
 
 export type NewOrderInput = {
@@ -51,7 +56,7 @@ export type NewOrderInput = {
   themeId: string;
   options: Record<string, string>;
   favorite?: string;
-  photoData?: string | null;
+  photoDatas?: string[]; // çocuğun fotoğrafları (1-3)
   companions?: OrderCompanion[];
   packageId: string;
   customer: {
@@ -75,7 +80,7 @@ export type Order = {
   themeId: string;
   options: Record<string, string>;
   favorite: string | null;
-  photoData: string | null;
+  photoDatas: string[]; // çocuğun fotoğrafları (1-3)
   companions: OrderCompanion[];
   packageId: string;
   price: number;
@@ -121,13 +126,19 @@ function validate(input: NewOrderInput) {
   const pkg = PACKAGES.find((p) => p.id === input.packageId);
   if (!pkg) throw new OrderValidationError("Geçersiz paket.");
 
-  if (
-    input.photoData &&
-    (typeof input.photoData !== "string" ||
-      !input.photoData.startsWith("data:image/") ||
-      input.photoData.length > MAX_PHOTO_DATA_CHARS)
-  ) {
-    throw new OrderValidationError("Fotoğraf verisi geçersiz.");
+  const badPhoto = (p: unknown) =>
+    typeof p !== "string" ||
+    !p.startsWith("data:image/") ||
+    p.length > MAX_PHOTO_DATA_CHARS;
+
+  if (input.photoDatas) {
+    if (
+      !Array.isArray(input.photoDatas) ||
+      input.photoDatas.length > MAX_CHILD_PHOTOS ||
+      input.photoDatas.some(badPhoto)
+    ) {
+      throw new OrderValidationError("Fotoğraf verisi geçersiz.");
+    }
   }
 
   if (input.companions) {
@@ -144,9 +155,10 @@ function validate(input: NewOrderInput) {
         throw new OrderValidationError("Yan karakter yakınlığı geçersiz.");
       }
       if (
-        typeof c.photoData !== "string" ||
-        !c.photoData.startsWith("data:image/") ||
-        c.photoData.length > MAX_PHOTO_DATA_CHARS
+        !Array.isArray(c.photoDatas) ||
+        c.photoDatas.length < 1 ||
+        c.photoDatas.length > MAX_COMPANION_PHOTOS ||
+        c.photoDatas.some(badPhoto)
       ) {
         throw new OrderValidationError("Yan karakter fotoğrafı geçersiz.");
       }
@@ -179,9 +191,9 @@ export function createOrder(input: NewOrderInput): Order {
   db.prepare(
     `INSERT INTO orders (
       id, child_name, age, gender, theme_id, options_json, favorite,
-      photo_data, companions_json, package_id, price, customer_name, email, phone,
-      address, district, city, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      photo_data, photos_json, companions_json, package_id, price, customer_name,
+      email, phone, address, district, city, note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     childName,
@@ -190,7 +202,8 @@ export function createOrder(input: NewOrderInput): Order {
     input.themeId,
     JSON.stringify(input.options),
     input.favorite?.trim() || null,
-    input.photoData || null,
+    input.photoDatas?.[0] || null, // ilk foto ayrıca burada (geri uyumluluk)
+    input.photoDatas?.length ? JSON.stringify(input.photoDatas) : null,
     input.companions?.length ? JSON.stringify(input.companions) : null,
     pkg.id,
     pkg.price,
@@ -217,6 +230,7 @@ type OrderRow = {
   options_json: string;
   favorite: string | null;
   photo_data: string | null;
+  photos_json: string | null;
   companions_json: string | null;
   package_id: string;
   price: number;
@@ -298,8 +312,20 @@ export function getOrder(id: string): Order | null {
     themeId: row.theme_id,
     options: JSON.parse(row.options_json),
     favorite: row.favorite,
-    photoData: row.photo_data,
-    companions: row.companions_json ? JSON.parse(row.companions_json) : [],
+    // Eski kayıtlar tek fotoğraflı (photo_data); yeniler photos_json.
+    photoDatas: row.photos_json
+      ? JSON.parse(row.photos_json)
+      : row.photo_data
+        ? [row.photo_data]
+        : [],
+    companions: (row.companions_json
+      ? (JSON.parse(row.companions_json) as (OrderCompanion & {
+          photoData?: string;
+        })[])
+      : []
+    ).map((c) =>
+      c.photoDatas?.length ? c : { ...c, photoDatas: c.photoData ? [c.photoData] : [] }
+    ),
     packageId: row.package_id,
     price: row.price,
     customerName: row.customer_name,

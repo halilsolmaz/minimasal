@@ -9,15 +9,15 @@ export type StoryInput = {
   themeId: string;
   options: Record<string, string>; // optionId -> choiceId
   favorite?: string;
-  // Çocuğun referans fotoğrafı (data URL). Görsel üretiminde kimlik
-  // referansı olarak kullanılır.
-  photoData?: string | null;
-  // Yan karakterler (Aile Masalı): yakınlık + isteğe bağlı isim + foto.
-  // Görsel üretiminde ek referans fotoğraf olarak gönderilir.
+  // Çocuğun referans fotoğrafları (1-3 data URL). Aynı kişinin farklı
+  // açılardan fotoğrafları benzerliği artırır; ilki zorunlu.
+  photoDatas?: string[];
+  // Yan karakterler (Aile Masalı): yakınlık + isteğe bağlı isim + foto(lar).
+  // Görsel üretiminde ek referans fotoğraf olarak gönderilir (her biri 1-2).
   companions?: {
     relationId: string;
     name?: string;
-    photoData: string;
+    photoDatas: string[];
   }[];
 };
 

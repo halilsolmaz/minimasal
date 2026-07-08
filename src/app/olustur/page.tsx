@@ -14,6 +14,8 @@ import {
 import {
   RELATIONS,
   MAX_COMPANIONS,
+  MAX_CHILD_PHOTOS,
+  MAX_COMPANION_PHOTOS,
   getRelation,
   type Companion,
 } from "@/lib/characters";
@@ -39,6 +41,26 @@ const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png"];
 // Fotoğrafı küçültüp data URL'e çevirir: hem sessionStorage'a sığar
 // hem de blob URL'in yenilemede ölmesi sorununu ortadan kaldırır.
 // (Baskı/AI için tam çözünürlüklü dosya ileride sunucuya yüklenecek.)
+// Ortak doğrulama + okuma: hata mesajı döner (başarıda null).
+async function validateAndRead(
+  file: File | undefined,
+  onOk: (dataUrl: string) => void
+): Promise<string | null> {
+  if (!file) return null;
+  if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+    return "Lütfen JPG veya PNG formatında bir fotoğraf seçin.";
+  }
+  if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
+    return `Fotoğraf en fazla ${MAX_PHOTO_MB} MB olabilir.`;
+  }
+  try {
+    onOk(await photoToDataUrl(file));
+    return null;
+  } catch {
+    return "Fotoğraf okunamadı. Lütfen başka bir dosya deneyin.";
+  }
+}
+
 function photoToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -105,7 +127,7 @@ export default function CreatePage() {
   const canNext = useMemo(() => {
     switch (step) {
       case 0:
-        return !!data.photoUrl;
+        return data.photoUrls.length >= 1;
       case 1:
         return data.childName.trim().length >= 2;
       case 2:
@@ -123,23 +145,11 @@ export default function CreatePage() {
     }
   }, [step, data, theme]);
 
-  const handlePhoto = async (file: File | undefined) => {
-    if (!file) return;
-    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-      setPhotoError("Lütfen JPG veya PNG formatında bir fotoğraf seçin.");
-      return;
-    }
-    if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
-      setPhotoError(`Fotoğraf en fazla ${MAX_PHOTO_MB} MB olabilir.`);
-      return;
-    }
-    try {
-      const dataUrl = await photoToDataUrl(file);
-      setPhotoError(null);
-      update({ photoUrl: dataUrl, photoName: file.name });
-    } catch {
-      setPhotoError("Fotoğraf okunamadı. Lütfen başka bir dosya deneyin.");
-    }
+  const addChildPhoto = async (file: File | undefined) => {
+    const err = await validateAndRead(file, (dataUrl) =>
+      update({ photoUrls: [...data.photoUrls, dataUrl] })
+    );
+    setPhotoError(err);
   };
 
   const startPreview = async () => {
@@ -156,11 +166,11 @@ export default function CreatePage() {
           themeId: data.themeId,
           options: data.options,
           favorite: data.favorite,
-          photoData: data.photoUrl,
+          photoDatas: data.photoUrls,
           companions: data.companions.map((c) => ({
             relationId: c.relationId,
             name: c.name,
-            photoData: c.photoUrl,
+            photoDatas: c.photoUrls,
           })),
         }),
       });
@@ -219,42 +229,17 @@ export default function CreatePage() {
           {/* 0 — Fotoğraf */}
           {step === 0 && (
             <StepShell
-              title="Çocuğunuzun fotoğrafını yükleyin"
-              subtitle="Yüzü net görünen, tek kişilik bir fotoğraf en iyisidir."
+              title="Çocuğunuzun fotoğraflarını yükleyin"
+              subtitle={`Yüzü net görünen, tek kişilik fotoğraflar en iyisidir. 1 fotoğraf yeterli; farklı açılardan ${MAX_CHILD_PHOTOS} fotoğrafa kadar eklerseniz benzerlik artar.`}
             >
-              <label className="block cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png"
-                  className="hidden"
-                  onChange={(e) => handlePhoto(e.target.files?.[0])}
-                />
-                <div className="rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/40 p-8 text-center hover:bg-primary-soft transition-colors">
-                  {data.photoUrl ? (
-                    <div className="flex flex-col items-center gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={data.photoUrl}
-                        alt="Yüklenen fotoğraf"
-                        className="h-40 w-40 object-cover rounded-2xl shadow-[var(--shadow-soft)]"
-                      />
-                      <span className="text-sm text-ink-soft">
-                        {data.photoName} · Değiştirmek için tıklayın
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-2">
-                      <span className="text-5xl">📸</span>
-                      <span className="font-bold text-ink">
-                        Fotoğraf seçmek için tıklayın
-                      </span>
-                      <span className="text-sm text-ink-soft">
-                        JPG veya PNG · en fazla 10 MB
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </label>
+              <PhotoList
+                photos={data.photoUrls}
+                max={MAX_CHILD_PHOTOS}
+                onAdd={addChildPhoto}
+                onRemove={(i) =>
+                  update({ photoUrls: data.photoUrls.filter((_, idx) => idx !== i) })
+                }
+              />
               {photoError && (
                 <p className="mt-3 text-sm font-semibold text-red-600">
                   ⚠️ {photoError}
@@ -481,6 +466,64 @@ export default function CreatePage() {
 
 /* ---------- Alt bileşenler ---------- */
 
+// Çoklu fotoğraf seçici: küçük önizlemeler + kaldır + ekleme kutusu.
+// Hem çocuğun fotoğrafları (max 3) hem yan karakter (max 2) için kullanılır.
+function PhotoList({
+  photos,
+  max,
+  onAdd,
+  onRemove,
+  compact = false,
+}: {
+  photos: string[];
+  max: number;
+  onAdd: (file: File | undefined) => void;
+  onRemove: (index: number) => void;
+  compact?: boolean;
+}) {
+  const size = compact ? "h-20 w-20" : "h-32 w-32";
+  return (
+    <div className="flex flex-wrap gap-3">
+      {photos.map((p, i) => (
+        <div key={i} className={`relative ${size}`}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={p}
+            alt={`Fotoğraf ${i + 1}`}
+            className={`${size} object-cover rounded-2xl shadow-[var(--shadow-soft)]`}
+          />
+          <button
+            onClick={() => onRemove(i)}
+            aria-label="Fotoğrafı kaldır"
+            className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-white border border-ink/10 shadow text-sm font-bold text-ink-soft hover:text-red-600 transition"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      {photos.length < max && (
+        <label
+          className={`${size} cursor-pointer rounded-2xl border-2 border-dashed border-primary/40 bg-primary-soft/40 hover:bg-primary-soft transition-colors flex flex-col items-center justify-center gap-1 text-center`}
+        >
+          <input
+            type="file"
+            accept="image/jpeg,image/png"
+            className="hidden"
+            onChange={(e) => {
+              onAdd(e.target.files?.[0]);
+              e.target.value = ""; // aynı dosya tekrar seçilebilsin
+            }}
+          />
+          <span className={compact ? "text-xl" : "text-3xl"}>📸</span>
+          <span className="text-xs font-semibold text-ink-soft px-1">
+            {photos.length === 0 ? "Fotoğraf ekle" : "Bir tane daha"}
+          </span>
+        </label>
+      )}
+    </div>
+  );
+}
+
 function StepShell({
   title,
   subtitle,
@@ -554,10 +597,10 @@ function Summary({
   ];
   return (
     <div className="flex gap-5 items-center rounded-2xl bg-cream-deep p-5">
-      {data.photoUrl && (
+      {data.photoUrls[0] && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={data.photoUrl}
+          src={data.photoUrls[0]}
           alt=""
           className="h-24 w-24 rounded-2xl object-cover shadow-[var(--shadow-soft)]"
         />
@@ -584,33 +627,22 @@ function CompanionsStep({
   const [adding, setAdding] = useState(false);
   const [relationId, setRelationId] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const resetDraft = () => {
     setAdding(false);
     setRelationId(null);
     setName("");
-    setPhotoUrl(null);
+    setPhotoUrls([]);
     setError(null);
   };
 
   const handlePhoto = async (file: File | undefined) => {
-    if (!file) return;
-    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
-      setError("Lütfen JPG veya PNG formatında bir fotoğraf seçin.");
-      return;
-    }
-    if (file.size > MAX_PHOTO_MB * 1024 * 1024) {
-      setError(`Fotoğraf en fazla ${MAX_PHOTO_MB} MB olabilir.`);
-      return;
-    }
-    try {
-      setPhotoUrl(await photoToDataUrl(file));
-      setError(null);
-    } catch {
-      setError("Fotoğraf okunamadı. Lütfen başka bir dosya deneyin.");
-    }
+    const err = await validateAndRead(file, (dataUrl) =>
+      setPhotoUrls((p) => [...p, dataUrl])
+    );
+    setError(err);
   };
 
   const add = () => {
@@ -618,11 +650,11 @@ function CompanionsStep({
       setError("Kim olduğunu seçin (anne, kardeş, kedi…).");
       return;
     }
-    if (!photoUrl) {
-      setError("Bir fotoğraf yükleyin.");
+    if (photoUrls.length === 0) {
+      setError("En az bir fotoğraf yükleyin.");
       return;
     }
-    onChange([...companions, { relationId, name: name.trim(), photoUrl }]);
+    onChange([...companions, { relationId, name: name.trim(), photoUrls }]);
     resetDraft();
   };
 
@@ -638,12 +670,17 @@ function CompanionsStep({
                 key={i}
                 className="flex items-center gap-4 rounded-2xl bg-cream-deep p-3"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={c.photoUrl}
-                  alt=""
-                  className="h-14 w-14 rounded-xl object-cover"
-                />
+                <div className="flex -space-x-3">
+                  {c.photoUrls.map((p, pi) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={pi}
+                      src={p}
+                      alt=""
+                      className="h-14 w-14 rounded-xl object-cover border-2 border-white"
+                    />
+                  ))}
+                </div>
                 <div className="flex-1">
                   <div className="font-bold text-ink">
                     {rel?.emoji} {rel?.label ?? c.relationId}
@@ -696,34 +733,19 @@ function CompanionsStep({
             />
           </div>
           <div>
-            <p className="font-bold text-ink mb-2">Fotoğrafı</p>
-            <label className="block cursor-pointer">
-              <input
-                type="file"
-                accept="image/jpeg,image/png"
-                className="hidden"
-                onChange={(e) => handlePhoto(e.target.files?.[0])}
-              />
-              <div className="rounded-xl border-2 border-dashed border-primary/40 bg-white p-4 text-center hover:bg-primary-soft/40 transition-colors">
-                {photoUrl ? (
-                  <div className="flex items-center justify-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={photoUrl}
-                      alt=""
-                      className="h-16 w-16 rounded-xl object-cover"
-                    />
-                    <span className="text-sm text-ink-soft">
-                      Değiştirmek için tıklayın
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-sm font-semibold text-ink-soft">
-                    📸 Fotoğraf seçmek için tıklayın
-                  </span>
-                )}
-              </div>
-            </label>
+            <p className="font-bold text-ink mb-2">
+              Fotoğrafı{" "}
+              <span className="font-normal text-ink-soft">
+                (1 yeterli, {MAX_COMPANION_PHOTOS} olursa benzerlik artar)
+              </span>
+            </p>
+            <PhotoList
+              photos={photoUrls}
+              max={MAX_COMPANION_PHOTOS}
+              onAdd={handlePhoto}
+              onRemove={(i) => setPhotoUrls((p) => p.filter((_, idx) => idx !== i))}
+              compact
+            />
           </div>
           {error && (
             <p className="text-sm font-semibold text-red-600">⚠️ {error}</p>

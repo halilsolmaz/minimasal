@@ -60,9 +60,10 @@ async function buildCover(input: GenerateImageInput): Promise<Buffer> {
 
   // Çocuğun fotoğrafı geldiyse kapağın ortasına yerleştir — fotoğrafın
   // sunucuya ulaştığını ve boru hattından geçtiğini kanıtlar.
-  if (input.photoData?.startsWith("data:image/")) {
+  const firstPhoto = input.photoDatas?.[0];
+  if (firstPhoto?.startsWith("data:image/")) {
     try {
-      const photoBuf = Buffer.from(input.photoData.split(",")[1], "base64");
+      const photoBuf = Buffer.from(firstPhoto.split(",")[1], "base64");
       const photo = await sharp(photoBuf)
         .resize(260, 260, { fit: "cover" })
         .composite([

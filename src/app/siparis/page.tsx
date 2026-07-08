@@ -79,11 +79,11 @@ export default function CheckoutPage() {
           themeId: wizard.themeId,
           options: wizard.options,
           favorite: wizard.favorite,
-          photoData: wizard.photoUrl,
+          photoDatas: wizard.photoUrls,
           companions: wizard.companions.map((c) => ({
             relationId: c.relationId,
             name: c.name,
-            photoData: c.photoUrl,
+            photoDatas: c.photoUrls,
           })),
           packageId,
           customer,
@@ -242,10 +242,10 @@ export default function CheckoutPage() {
             Sipariş özeti
           </h2>
           <div className="mt-4 flex items-center gap-4">
-            {wizard.photoUrl && (
+            {wizard.photoUrls[0] && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={wizard.photoUrl}
+                src={wizard.photoUrls[0]}
                 alt=""
                 className="h-16 w-16 rounded-xl object-cover"
               />

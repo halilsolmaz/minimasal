@@ -7,7 +7,12 @@ import { generateImage, writeStory } from "@/lib/ai";
 import { toWatermarkedPreview } from "@/lib/ai/watermark";
 import { checkTeaserLimits, saveTeaser } from "@/lib/teasers";
 import { getTheme } from "@/lib/themes";
-import { getRelation, MAX_COMPANIONS } from "@/lib/characters";
+import {
+  getRelation,
+  MAX_COMPANIONS,
+  MAX_CHILD_PHOTOS,
+  MAX_COMPANION_PHOTOS,
+} from "@/lib/characters";
 
 type PreviewRequest = {
   childName: string;
@@ -16,8 +21,8 @@ type PreviewRequest = {
   themeId: string;
   options: Record<string, string>;
   favorite?: string;
-  photoData?: string | null;
-  companions?: { relationId: string; name?: string; photoData: string }[];
+  photoDatas?: string[];
+  companions?: { relationId: string; name?: string; photoDatas: string[] }[];
 };
 
 const MAX_PHOTO_DATA_CHARS = 2_000_000;
@@ -36,13 +41,16 @@ function validationError(body: PreviewRequest): string | null {
     if (!choice || !opt.choices.some((c) => c.id === choice))
       return `Tema seçimi eksik: ${opt.question}`;
   }
-  if (
-    body.photoData &&
-    (typeof body.photoData !== "string" ||
-      !body.photoData.startsWith("data:image/") ||
-      body.photoData.length > MAX_PHOTO_DATA_CHARS)
-  )
-    return "Fotoğraf verisi geçersiz.";
+  const badPhoto = (p: unknown) =>
+    typeof p !== "string" ||
+    !p.startsWith("data:image/") ||
+    p.length > MAX_PHOTO_DATA_CHARS;
+
+  if (body.photoDatas) {
+    if (!Array.isArray(body.photoDatas) || body.photoDatas.length > MAX_CHILD_PHOTOS)
+      return `En fazla ${MAX_CHILD_PHOTOS} fotoğraf yüklenebilir.`;
+    if (body.photoDatas.some(badPhoto)) return "Fotoğraf verisi geçersiz.";
+  }
 
   if (body.companions) {
     if (!Array.isArray(body.companions) || body.companions.length > MAX_COMPANIONS)
@@ -50,9 +58,10 @@ function validationError(body: PreviewRequest): string | null {
     for (const c of body.companions) {
       if (!getRelation(c.relationId)) return "Yan karakter yakınlığı geçersiz.";
       if (
-        typeof c.photoData !== "string" ||
-        !c.photoData.startsWith("data:image/") ||
-        c.photoData.length > MAX_PHOTO_DATA_CHARS
+        !Array.isArray(c.photoDatas) ||
+        c.photoDatas.length < 1 ||
+        c.photoDatas.length > MAX_COMPANION_PHOTOS ||
+        c.photoDatas.some(badPhoto)
       )
         return "Yan karakter fotoğrafı geçersiz.";
       if (c.name && (typeof c.name !== "string" || c.name.length > 40))

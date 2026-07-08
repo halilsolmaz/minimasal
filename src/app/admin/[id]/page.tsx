@@ -125,14 +125,21 @@ export default async function AdminOrderPage({
         </div>
 
         <aside className="rounded-2xl bg-white border border-ink/10 p-6">
-          <h2 className="font-bold text-ink">Yüklenen fotoğraf</h2>
-          {order.photoData ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={order.photoData}
-              alt="Sipariş fotoğrafı"
-              className="mt-3 w-full rounded-xl object-cover"
-            />
+          <h2 className="font-bold text-ink">
+            Yüklenen fotoğraf{order.photoDatas.length > 1 ? "lar" : ""}
+          </h2>
+          {order.photoDatas.length > 0 ? (
+            <div className="mt-3 space-y-3">
+              {order.photoDatas.map((p, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={i}
+                  src={p}
+                  alt={`Sipariş fotoğrafı ${i + 1}`}
+                  className="w-full rounded-xl object-cover"
+                />
+              ))}
+            </div>
           ) : (
             <p className="mt-3 text-sm text-ink-soft">Fotoğraf yok.</p>
           )}
@@ -149,12 +156,17 @@ export default async function AdminOrderPage({
                   const rel = getRelation(c.relationId);
                   return (
                     <li key={i} className="flex items-center gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={c.photoData}
-                        alt=""
-                        className="h-14 w-14 rounded-xl object-cover"
-                      />
+                      <div className="flex -space-x-3">
+                        {c.photoDatas.map((p, pi) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={pi}
+                            src={p}
+                            alt=""
+                            className="h-14 w-14 rounded-xl object-cover border-2 border-white"
+                          />
+                        ))}
+                      </div>
                       <div className="text-sm">
                         <div className="font-bold text-ink">
                           {rel?.emoji} {rel?.label ?? c.relationId}

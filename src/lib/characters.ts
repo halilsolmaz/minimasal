@@ -17,6 +17,12 @@ export type Relation = {
 // çocuk + 3 yan karakter = 4 → güvenli bölge. (Tek yerden artar/azalır.)
 export const MAX_COMPANIONS = 3;
 
+// Karakter başına referans fotoğraf sınırları (kurucu kararı 2026-07-08):
+// aynı kişinin farklı açılardan fotoğrafları benzerliği belirgin artırır.
+// En kötü durum: 3 + 3×2 = 9 referans → Nano Banana Pro'nun 14 sınırının içinde.
+export const MAX_CHILD_PHOTOS = 3;
+export const MAX_COMPANION_PHOTOS = 2;
+
 export const RELATIONS: Relation[] = [
   { id: "anne", label: "Annesi", emoji: "👩", en: "mother", type: "person" },
   { id: "baba", label: "Babası", emoji: "👨", en: "father", type: "person" },
@@ -34,9 +40,9 @@ export function getRelation(id: string): Relation | undefined {
   return RELATIONS.find((r) => r.id === id);
 }
 
-// Bir yan karakter: fotoğraf + yakınlık + isteğe bağlı isim ("Pamuk").
+// Bir yan karakter: fotoğraf(lar) + yakınlık + isteğe bağlı isim ("Pamuk").
 export type Companion = {
   relationId: string;
   name: string; // boş olabilir; boşsa hikayede "annesi" gibi geçer
-  photoUrl: string; // küçültülmüş data URL (çocuk fotoğrafıyla aynı işlem)
+  photoUrls: string[]; // 1-2 küçültülmüş data URL (ilki zorunlu)
 };

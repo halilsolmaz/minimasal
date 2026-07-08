@@ -53,30 +53,47 @@ function sceneFor(input: GenerateImageInput): string {
   }
 }
 
-// Yan karakter tarifleri: referans fotoğrafların sırasıyla eşleşir.
-// (1. foto her zaman çocuk; 2., 3., ... yan karakterler.)
-function companionsDescription(input: GenerateImageInput): string {
-  const list = input.companions ?? [];
-  if (list.length === 0) return "";
-  const parts = list.map((c, i) => {
+// Referans fotoğraf haritası: önce çocuğun fotoğrafları (1..k, aynı çocuk),
+// ardından her yan karakterin fotoğrafları sırayla. Görsel istemindeki
+// numaralar image_urls dizisindeki sırayla birebir eşleşmek ZORUNDA.
+function referenceMap(input: GenerateImageInput): {
+  refs: string[];
+  description: string;
+} {
+  const childPhotos = input.photoDatas ?? [];
+  const refs = [...childPhotos];
+  const gender = input.gender === "kiz" ? "girl" : "boy";
+
+  let description =
+    childPhotos.length > 1
+      ? `Reference photos 1-${childPhotos.length} all show the SAME child from different angles: the ${input.age}-year-old ${gender} hero — `
+      : `The hero is the ${input.age}-year-old ${gender} from reference photo 1 — `;
+  description +=
+    "keep the face recognizable but stylized as a friendly storybook character, NOT photorealistic. ";
+
+  for (const c of input.companions ?? []) {
     const rel = getRelation(c.relationId);
     const who = rel?.en ?? "companion";
     const named = c.name?.trim() ? ` (named ${c.name.trim()})` : "";
-    return `Reference photo ${i + 2} is the child's ${who}${named} — also keep them recognizable but stylized.`;
-  });
-  return ` The story also features side characters: ${parts.join(" ")} Include them in the scene together with the child.`;
+    const start = refs.length + 1;
+    refs.push(...c.photoDatas);
+    const range =
+      c.photoDatas.length > 1 ? `photos ${start}-${refs.length}` : `photo ${start}`;
+    description += `Reference ${range} show the child's ${who}${named} — also keep them recognizable but stylized. `;
+  }
+  if ((input.companions ?? []).length > 0) {
+    description += "Include the side characters in the scene together with the child. ";
+  }
+  return { refs, description };
 }
 
-function coverPrompt(input: GenerateImageInput): string {
-  const gender = input.gender === "kiz" ? "girl" : "boy";
+function coverPrompt(input: GenerateImageInput, refDescription: string): string {
   const favorite = input.favorite?.trim()
     ? ` Subtly include the child's favorite thing: ${input.favorite.trim()}.`
     : "";
   return (
     `Children's picture book COVER illustration. ${STYLE_PROMPT}. ` +
-    `The hero is the ${input.age}-year-old ${gender} from reference photo 1 — ` +
-    `keep the face recognizable but stylized as a friendly storybook character, NOT photorealistic. ` +
-    companionsDescription(input) +
+    refDescription +
     sceneFor(input) +
     favorite +
     ` Render the book title text "${input.title}" prominently at the top in a playful, ` +
@@ -260,14 +277,11 @@ export const falProvider: AiProvider = {
   name: "fal",
 
   async generateImage(input: GenerateImageInput): Promise<GenerateImageResult> {
-    if (!input.photoData?.startsWith("data:image/")) {
-      throw new Error("Görsel üretimi için referans fotoğraf gerekli.");
+    if (!input.photoDatas?.[0]?.startsWith("data:image/")) {
+      throw new Error("Görsel üretimi için en az bir referans fotoğraf gerekli.");
     }
-    const refs = [
-      input.photoData,
-      ...(input.companions ?? []).map((c) => c.photoData),
-    ];
-    const image = await callFal(coverPrompt(input), refs);
+    const { refs, description } = referenceMap(input);
+    const image = await callFal(coverPrompt(input, description), refs);
     return { image, provider: "fal:nano-banana-pro" };
   },
 

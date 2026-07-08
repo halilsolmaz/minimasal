@@ -48,8 +48,13 @@ function createDb(): Database.Database {
     db.prepare("PRAGMA table_info(orders)").all() as { name: string }[]
   ).map((c) => c.name);
   if (!orderCols.includes("companions_json")) {
-    // Yan karakterler (Aile Masalı, 2026-07-08): [{relationId, name, photoData}]
+    // Yan karakterler (Aile Masalı, 2026-07-08): [{relationId, name, photoDatas}]
     db.exec("ALTER TABLE orders ADD COLUMN companions_json TEXT");
+  }
+  if (!orderCols.includes("photos_json")) {
+    // Çoklu çocuk fotoğrafı (2026-07-08): ["data:image/...", ...] (1-3 adet).
+    // photo_data kolonu ilk fotoğrafı tutmaya devam eder (liste/geri uyumluluk).
+    db.exec("ALTER TABLE orders ADD COLUMN photos_json TEXT");
   }
   db.exec(`
     CREATE TABLE IF NOT EXISTS teasers (
