@@ -142,6 +142,10 @@ data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 4. **Canlıya çıkış paketi (kurucu erteledi):** ödeme (iyzico + şirket), üyelik/e-posta doğrulama + istismar koruması (CAPTCHA, rate-limit), sipariş e-postaları, KVKK/hukuk metinleri, admin auth sertleştirme.
 5. **Deploy** (hosting + domain; SQLite → hosted DB geçişi gerekir).
 
+### Fikir rafı (kurucu önerileri, sırası gelince)
+- **Çoklu karakter / "Aile Masalı" (2026-07-08):** anne + çocuk + evcil hayvan aynı kitapta. Nano Banana Pro 14 referans foto / 5 kişi tutarlılığı destekliyor; sihirbaza "kim eşlik etsin?" adımı + ek foto yükleme gerekir. Tek kahramanlı ürün oturduktan sonra premium paket olarak.
+- **İç sayfa maliyet düşürme:** kapak Pro'da kalsın; iç sayfalar için Nano Banana 2 ($0.08) ve FLUX Kontext pro ($0.04) karşılaştırma testi yapılacak (kurucu "yap" deyince; aynı Defne girdisiyle).
+
 **Sıradaki adım:** AI entegrasyonu (kurucu "biraz geç girelim" dedi — hazır olduğunda A/B yolunu seçecek) veya içerik sayfaları.
 
 ---
