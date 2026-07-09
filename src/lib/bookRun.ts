@@ -8,8 +8,13 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { getOrder } from "./orders";
+import { getTeaser } from "./teasers";
 import { PACKAGES } from "./brand";
 import { generateImage, writeStory } from "./ai";
+
+function dataUrlToBuffer(dataUrl: string): Buffer {
+  return Buffer.from(dataUrl.split(",")[1], "base64");
+}
 
 function outDirFor(shortId: string): string {
   return path.join(os.homedir(), "Desktop", "minimasal-kitaplar", shortId);
@@ -47,11 +52,19 @@ export async function runBookGeneration(orderId: string): Promise<void> {
       })),
     };
 
+    // Önizlemeden gelen sipariş: başlık + 1. sahne (metin + görsel) ve
+    // kapak AYNEN yeniden kullanılır — önizleme maliyeti boşa gitmez.
+    const teaser = order.teaserId ? getTeaser(order.teaserId) : null;
+    const reuse = !!(teaser?.scene1 && teaser.coverRaw && teaser.page1Raw);
+    if (reuse) log(dir, "Önizleme bulundu: kapak + 1. sahne oradan kullanılacak.");
+
     log(dir, `Hikaye yazılıyor (${sceneCount} sahne)...`);
     const story = await writeStory({
       ...storyInput,
       scope: "full",
       scenes: sceneCount,
+      fixedFirstScene: reuse ? teaser!.scene1! : undefined,
+      fixedTitle: reuse ? teaser!.title : undefined,
     });
     if (!story.scenes?.length) throw new Error("Hikaye sahneleri boş geldi.");
     fs.writeFileSync(
@@ -61,16 +74,26 @@ export async function runBookGeneration(orderId: string): Promise<void> {
     );
     log(dir, `Hikaye hazır: "${story.title}"`);
 
-    log(dir, "Kapak üretiliyor...");
-    const cover = await generateImage({
-      ...storyInput,
-      kind: "cover",
-      title: story.title,
-    });
-    fs.writeFileSync(path.join(dir, "00-kapak.jpg"), cover.image);
-    log(dir, "Kapak hazır.");
+    if (reuse) {
+      fs.writeFileSync(path.join(dir, "00-kapak.jpg"), dataUrlToBuffer(teaser!.coverRaw!));
+      log(dir, "Kapak önizlemeden alındı.");
+    } else {
+      log(dir, "Kapak üretiliyor...");
+      const cover = await generateImage({
+        ...storyInput,
+        kind: "cover",
+        title: story.title,
+      });
+      fs.writeFileSync(path.join(dir, "00-kapak.jpg"), cover.image);
+      log(dir, "Kapak hazır.");
+    }
 
     for (let i = 0; i < story.scenes.length; i++) {
+      if (i === 0 && reuse) {
+        fs.writeFileSync(path.join(dir, "01-sahne.jpg"), dataUrlToBuffer(teaser!.page1Raw!));
+        log(dir, "Sahne 1 görseli önizlemeden alındı.");
+        continue;
+      }
       log(dir, `Sahne ${i + 1}/${story.scenes.length} görseli üretiliyor...`);
       const page = await generateImage({
         ...storyInput,
@@ -111,7 +134,7 @@ export async function runBookGeneration(orderId: string): Promise<void> {
   .note{color:#8a8496;font-family:sans-serif;font-size:14px;max-width:640px;text-align:center}
 </style></head><body>
 <h1>${story.title}</h1>
-<p class="note">Sipariş ${shortId} · ${story.scenes.length} sahne / ${story.scenes.length * 2} iç sayfa · üretici: ${cover.provider}</p>
+<p class="note">Sipariş ${shortId} · ${story.scenes.length} sahne / ${story.scenes.length * 2} iç sayfa · üretici: ${story.provider}${reuse ? " · kapak+1. sahne önizlemeden" : ""}</p>
 <div class="cover"><img src="00-kapak.jpg"></div>
 ${spreads}
 </body></html>`,

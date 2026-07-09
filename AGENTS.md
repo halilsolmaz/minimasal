@@ -33,11 +33,15 @@ AI kullanarak **kişiselleştirilmiş hediye kitapları** satan bir e-ticaret gi
 - **Sanat stili:** Başlangıçta **suluboya / yumuşak illüstrasyon** (yüz tutarlılığını en çok affeden, en az riskli stil). 3D Pixar tarzı ileride "premium" seçenek olabilir. Karar netleşmeden önce ilk gerçek çıktılarla suluboya vs 3D karşılaştırması yapılacak.
 - **Hikaye motoru:** AI serbest yazmaz. Her tema **5 sahnelik SABİT İSKELET + değişkenler** üzerine kurulur (2026-07-07'de 8'den 5'e indirildi, format kararıyla birlikte); AI sadece çocuğun adı/görünümü ve kullanıcı seçimlerine göre boşlukları doldurur. İskelet:
   `1 Tanışma → 2 Maceraya çağrı → 3 Zorluk → 4 Cesaret & Zafer → 5 Sıcak dönüş`
-- **Temalar (3 ile başla, şiddet/çatışma YOK — yardım odaklı):**
+- **Temalar (6 tema, şiddet/çatışma YOK — yardım odaklı; 2026-07-08'de 3'ten 6'ya çıkarıldı + mevcutlara seçenek eklendi, kurucu istedi):**
   1. **Hayvan Dostu Macera** (hayvan + mekân + yardım edilen şey)
   2. **Süper Kahraman** (güç + kime yardım + mekân) — "kötüyü yenmek" değil "yardım etmek"
   3. **Sihirli Keşif** (geçit + diyar + bulunan değer)
-  Detaylar kod içinde: `src/lib/themes.ts`.
+  4. **Uzay Macerası** (araç + gezegen + kime yardım)
+  5. **Dinozor Vadisi** (dino dostu + mekân + görev)
+  6. **Peri Bahçesi** (dost + mekân + bahçenin derdi)
+  Detaylar kod içinde: `src/lib/themes.ts`. Yeni tema eklerken `fal.ts sceneFor()` ve `mock.ts buildTitle()` da güncellenmeli.
+- **Önizleme = başlık + kapak + 1. sahne (2026-07-08, kurucu kararı):** Teaser'da LLM başlık + 1. sahneyi (metin+imageBrief) yazar; kapak VE 1. sahne görseli üretilir (~$0.30/önizleme), ikisi de filigranlı gösterilir. HAM halleri + sahne metni `teasers` tablosunda saklanır; sipariş `teaser_id` ile bağlanır ve tam kitapta **kapak + 1. sahne + başlık AYNEN yeniden kullanılır** (bookRun.ts) → dönüşen müşteri için önizleme maliyeti sıfır, vazgeçen başına ~$0.30. Tam üretim canlıda ödeme onayına bağlanacak.
 - **Kullanıcı soru akışı:** foto → çocuğun adı → yaş + cinsiyet → tema → temaya özel 2-3 seçim → (opsiyonel) favori şey → özet + önizleme.
 
 ---

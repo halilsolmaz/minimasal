@@ -12,6 +12,7 @@ import {
   loadWizardState,
   clearWizardState,
   isWizardComplete,
+  PREVIEW_STORAGE_KEY,
   type WizardState,
 } from "@/lib/wizard";
 
@@ -68,6 +69,16 @@ export default function CheckoutPage() {
     if (!wizard || !canSubmit || submitting) return;
     setSubmitting(true);
     setError(null);
+    // Önizleme üretildiyse teaserId'yi siparişe bağla — kapak ve 1. sahne
+    // tam kitapta yeniden kullanılır (tekrar üretim maliyeti olmaz).
+    let teaserId: string | undefined;
+    try {
+      teaserId = JSON.parse(
+        sessionStorage.getItem(PREVIEW_STORAGE_KEY) ?? "null"
+      )?.teaserId;
+    } catch {
+      // önizleme kaydı bozuksa teaser'sız devam
+    }
     try {
       const res = await fetch("/api/siparis", {
         method: "POST",
@@ -85,6 +96,7 @@ export default function CheckoutPage() {
             name: c.name,
             photoDatas: c.photoUrls,
           })),
+          teaserId,
           packageId,
           customer,
         }),

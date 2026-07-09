@@ -89,15 +89,32 @@ export async function POST(request: Request) {
 
   try {
     const childName = body.childName.trim();
+    // Başlık + 1. sahne (Tanışma) birlikte yazılır; sipariş gelirse
+    // ikisi de tam kitapta AYNEN kullanılır (bkz. bookRun.ts).
     const story = await writeStory({ ...body, childName, scope: "teaser" });
+    const scene1 = story.scenes?.[0];
+    if (!scene1) throw new Error("1. sahne üretilemedi.");
+
     const cover = await generateImage({
       ...body,
       childName,
       kind: "cover",
       title: story.title,
     });
-    const preview = await toWatermarkedPreview(cover.image);
-    const imageData = `data:image/jpeg;base64,${preview.toString("base64")}`;
+    const page1 = await generateImage({
+      ...body,
+      childName,
+      kind: "page",
+      title: story.title,
+      sceneBrief: scene1.imageBrief,
+    });
+
+    const [coverWm, page1Wm] = await Promise.all([
+      toWatermarkedPreview(cover.image),
+      toWatermarkedPreview(page1.image),
+    ]);
+    const imageData = `data:image/jpeg;base64,${coverWm.toString("base64")}`;
+    const page1Image = `data:image/jpeg;base64,${page1Wm.toString("base64")}`;
 
     const teaserId = saveTeaser({
       ip,
@@ -106,9 +123,18 @@ export async function POST(request: Request) {
       title: story.title,
       provider: cover.provider,
       imageData,
+      scene1,
+      coverRaw: `data:image/jpeg;base64,${cover.image.toString("base64")}`,
+      page1Raw: `data:image/jpeg;base64,${page1.image.toString("base64")}`,
     });
 
-    return Response.json({ teaserId, title: story.title, imageData });
+    return Response.json({
+      teaserId,
+      title: story.title,
+      imageData,
+      page1Image,
+      page1Text: scene1.pageText,
+    });
   } catch (err) {
     console.error("Önizleme üretilemedi:", err);
     return Response.json(

@@ -84,8 +84,15 @@ function photoToDataUrl(file: File): Promise<string> {
 }
 
 // Üretilen önizleme de saklanır — yenilemede tekrar üretilmesin
-// (her üretim ücretsiz hak limitinden düşer).
-type Preview = { title: string; imageData: string };
+// (her üretim ücretsiz hak limitinden düşer). teaserId siparişe taşınır:
+// kapak ve 1. sahne, sipariş verilirse tam kitapta aynen kullanılır.
+type Preview = {
+  title: string;
+  imageData: string;
+  page1Image?: string;
+  page1Text?: string;
+  teaserId?: string;
+};
 
 export default function CreatePage() {
   const [step, setStep] = useState(0);
@@ -179,7 +186,13 @@ export default function CreatePage() {
         setPreviewError(json.error ?? "Önizleme üretilemedi.");
         return;
       }
-      const next: Preview = { title: json.title, imageData: json.imageData };
+      const next: Preview = {
+        title: json.title,
+        imageData: json.imageData,
+        page1Image: json.page1Image,
+        page1Text: json.page1Text,
+        teaserId: json.teaserId,
+      };
       setPreview(next);
       try {
         sessionStorage.setItem(PREVIEW_STORAGE_KEY, JSON.stringify(next));
@@ -799,7 +812,30 @@ function PreviewCard({ preview }: { preview: Preview }) {
       <p className="mt-4 font-display font-bold text-xl text-ink">
         {preview.title}
       </p>
-      <p className="mt-2 text-sm text-ink-soft max-w-sm mx-auto">
+
+      {/* İlk sahne önizlemesi: solda metin, sağda görsel (kitap düzeni) */}
+      {preview.page1Image && preview.page1Text && (
+        <div className="mt-6 mx-auto max-w-lg text-left rounded-2xl border border-ink/10 bg-cream-deep overflow-hidden">
+          <p className="px-4 pt-3 text-xs font-bold text-ink-soft uppercase tracking-wide">
+            Kitabın ilk sayfaları
+          </p>
+          <div className="p-4 grid grid-cols-2 gap-3 items-stretch">
+            <div className="rounded-xl bg-white p-4 flex items-center">
+              <p className="text-sm leading-relaxed text-ink">
+                {preview.page1Text}
+              </p>
+            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={preview.page1Image}
+              alt="İlk sahne önizlemesi"
+              className="rounded-xl object-cover w-full h-full"
+            />
+          </div>
+        </div>
+      )}
+
+      <p className="mt-4 text-sm text-ink-soft max-w-sm mx-auto">
         Bu düşük çözünürlüklü, filigranlı bir önizlemedir. Baskı kalitesindeki
         kitap yalnızca sipariş sonrası hazırlanır.
       </p>

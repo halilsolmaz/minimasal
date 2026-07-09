@@ -58,6 +58,7 @@ export type NewOrderInput = {
   favorite?: string;
   photoDatas?: string[]; // çocuğun fotoğrafları (1-3)
   companions?: OrderCompanion[];
+  teaserId?: string; // önizleme kaydı — kapak + 1. sahne oradan kullanılır
   packageId: string;
   customer: {
     name: string;
@@ -82,6 +83,7 @@ export type Order = {
   favorite: string | null;
   photoDatas: string[]; // çocuğun fotoğrafları (1-3)
   companions: OrderCompanion[];
+  teaserId: string | null;
   packageId: string;
   price: number;
   customerName: string;
@@ -125,6 +127,13 @@ function validate(input: NewOrderInput) {
 
   const pkg = PACKAGES.find((p) => p.id === input.packageId);
   if (!pkg) throw new OrderValidationError("Geçersiz paket.");
+
+  if (
+    input.teaserId &&
+    (typeof input.teaserId !== "string" || input.teaserId.length > 64)
+  ) {
+    throw new OrderValidationError("Önizleme kaydı geçersiz.");
+  }
 
   const badPhoto = (p: unknown) =>
     typeof p !== "string" ||
@@ -191,9 +200,9 @@ export function createOrder(input: NewOrderInput): Order {
   db.prepare(
     `INSERT INTO orders (
       id, child_name, age, gender, theme_id, options_json, favorite,
-      photo_data, photos_json, companions_json, package_id, price, customer_name,
-      email, phone, address, district, city, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      photo_data, photos_json, companions_json, teaser_id, package_id, price,
+      customer_name, email, phone, address, district, city, note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     childName,
@@ -205,6 +214,7 @@ export function createOrder(input: NewOrderInput): Order {
     input.photoDatas?.[0] || null, // ilk foto ayrıca burada (geri uyumluluk)
     input.photoDatas?.length ? JSON.stringify(input.photoDatas) : null,
     input.companions?.length ? JSON.stringify(input.companions) : null,
+    input.teaserId || null,
     pkg.id,
     pkg.price,
     customer.name,
@@ -232,6 +242,7 @@ type OrderRow = {
   photo_data: string | null;
   photos_json: string | null;
   companions_json: string | null;
+  teaser_id: string | null;
   package_id: string;
   price: number;
   customer_name: string;
@@ -326,6 +337,7 @@ export function getOrder(id: string): Order | null {
     ).map((c) =>
       c.photoDatas?.length ? c : { ...c, photoDatas: c.photoData ? [c.photoData] : [] }
     ),
+    teaserId: row.teaser_id,
     packageId: row.package_id,
     price: row.price,
     customerName: row.customer_name,

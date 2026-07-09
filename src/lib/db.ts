@@ -56,6 +56,11 @@ function createDb(): Database.Database {
     // photo_data kolonu ilk fotoğrafı tutmaya devam eder (liste/geri uyumluluk).
     db.exec("ALTER TABLE orders ADD COLUMN photos_json TEXT");
   }
+  if (!orderCols.includes("teaser_id")) {
+    // Sipariş, önizlemeden geldiyse hangi teaser'dan: kapak + 1. sahne
+    // oradan yeniden kullanılır (üretim maliyeti boşa gitmez).
+    db.exec("ALTER TABLE orders ADD COLUMN teaser_id TEXT");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS teasers (
       id          TEXT PRIMARY KEY,
@@ -68,6 +73,21 @@ function createDb(): Database.Database {
       image_data  TEXT NOT NULL
     )
   `);
+  const teaserCols = (
+    db.prepare("PRAGMA table_info(teasers)").all() as { name: string }[]
+  ).map((c) => c.name);
+  // Önizlemede üretilenlerin siparişte YENİDEN KULLANIMI (2026-07-08):
+  // 1. sahne (metin+brief), ham kapak ve ham 1. sahne görseli saklanır —
+  // sipariş gelirse bunlar tam kitaba aynen girer, para boşa gitmez.
+  if (!teaserCols.includes("scene1_json")) {
+    db.exec("ALTER TABLE teasers ADD COLUMN scene1_json TEXT");
+  }
+  if (!teaserCols.includes("cover_raw")) {
+    db.exec("ALTER TABLE teasers ADD COLUMN cover_raw TEXT");
+  }
+  if (!teaserCols.includes("page1_raw")) {
+    db.exec("ALTER TABLE teasers ADD COLUMN page1_raw TEXT");
+  }
   return db;
 }
 

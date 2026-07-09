@@ -48,6 +48,12 @@ function sceneFor(input: GenerateImageInput): string {
       return `The child is a kind little superhero with the power of ${label("guc")}, helping others in ${label("mekan")}. No villains, no fighting.`;
     case "sihirli-kesif":
       return `The child is stepping through ${label("kapi")} into the magical land of ${label("diyar")}.`;
+    case "uzay-macerasi":
+      return `The child is traveling to space in ${label("arac")}, exploring ${label("gezegen")} to help ${label("yardim")}. Friendly, colorful space, no danger.`;
+    case "dinozor-vadisi":
+      return `The child is in a lush friendly dinosaur valley near ${label("mekan")}, together with a gentle ${label("dino")} dinosaur. Cute, kind dinosaurs, nothing scary.`;
+    case "peri-bahcesi":
+      return `The child is in a glowing magical fairy garden at ${label("mekan")}, with ${label("dost")} as a tiny companion. Soft night lights, fireflies, wonder.`;
     default:
       return "The child is on a magical, gentle adventure.";
   }
@@ -229,23 +235,38 @@ function storyPrompt(input: WriteStoryInput): string {
     : "";
   const hero = `Kahraman: ${input.childName}, ${input.age} yaşında ${input.gender === "kiz" ? "kız" : "erkek"} çocuk. Tema: ${theme?.title ?? input.themeId}. Seçimler: ${choices}.${favorite}${companions}`;
 
+  const fieldRules =
+    `- "pageText": sayfaya basılacak masal metni (yukarıdaki yaş kuralına uygun cümle sayısı)\n` +
+    `- "imageBrief": o sahnenin İngilizce görsel tarifi (çocuk ne yapıyor, nerede, hangi duygu, ` +
+    `hangi detaylar; 1-2 cümle; 'the child' de, isim yazma)`;
+
   if (input.scope === "teaser") {
+    // Önizleme: başlık + 1. sahne (Tanışma). Sipariş gelirse bu sahne
+    // tam kitapta aynen kullanılır — o yüzden gerçek kalitede yazılır.
     return (
-      `${hero}\n\nBu masal için etkileyici, kısa bir kitap başlığı üret ` +
-      `(en fazla 5 kelime, çocuğun adı geçsin). ` +
-      `SADECE şu JSON'u döndür: {"title": "..."}`
+      `${hero}\n\n${ageStyle(input.age)}\n\n` +
+      `Bu masal için: (1) etkileyici, kısa bir kitap başlığı üret (en fazla 5 kelime, ` +
+      `çocuğun adı geçsin), (2) masalın 1. sahnesini yaz (Tanışma: çocuğu ve dünyasını ` +
+      `tanıtan, tek başına da anlamlı bir açılış sahnesi).\n\nSahne alanları:\n${fieldRules}\n\n` +
+      `SADECE şu JSON'u döndür: {"title": "...", "scene1": {"pageText": "...", "imageBrief": "..."}}`
     );
   }
 
   const beats = skeletonFor(input.scenes ?? 5);
+  const fixedFirst = input.fixedFirstScene
+    ? `\n\nÖNEMLİ: 1. sahne (Tanışma) DAHA ÖNCE yazıldı ve görseli üretildi. ` +
+      `scenes[0] olarak AYNEN şunu döndür, tek kelime değiştirme:\n` +
+      JSON.stringify(input.fixedFirstScene) +
+      `\nKalan sahneleri bu açılışla tutarlı biçimde yaz.` +
+      (input.fixedTitle
+        ? ` Kitap başlığı da DAHA ÖNCE belirlendi ve kapağa basıldı; "title" alanında AYNEN şunu kullan: "${input.fixedTitle}"`
+        : "")
+    : "";
   return (
     `${hero}\n\n${ageStyle(input.age)}\n\n` +
     `${beats.length} sahnelik bir masal yaz. Sahne iskeleti SABİT, sırayı ve işlevi değiştirme:\n` +
     beats.map((b, i) => `${i + 1}. ${b}`).join("\n") +
-    `\n\nHer sahne için iki alan üret:\n` +
-    `- "pageText": sayfaya basılacak masal metni (yukarıdaki yaş kuralına uygun cümle sayısı)\n` +
-    `- "imageBrief": o sahnenin İngilizce görsel tarifi (çocuk ne yapıyor, nerede, hangi duygu, ` +
-    `hangi detaylar; 1-2 cümle; 'the child' de, isim yazma)\n\n` +
+    `\n\nHer sahne için iki alan üret:\n${fieldRules}${fixedFirst}\n\n` +
     `SADECE şu JSON'u döndür: {"title": "...", "scenes": [{"pageText": "...", "imageBrief": "..."}, ...]}`
   );
 }
@@ -306,9 +327,18 @@ export const falProvider: AiProvider = {
     try {
       const output = await callLlm(storyPrompt(input));
       if (input.scope === "teaser") {
-        const { title } = extractJson<{ title: string }>(output);
-        if (!title?.trim()) throw new Error("Başlık boş geldi.");
-        return { title: title.trim(), provider: `fal:${LLM_MODEL}` };
+        const parsed = extractJson<{
+          title: string;
+          scene1: { pageText: string; imageBrief: string };
+        }>(output);
+        if (!parsed.title?.trim() || !parsed.scene1?.pageText || !parsed.scene1?.imageBrief) {
+          throw new Error("Teaser çıktısı eksik (başlık veya 1. sahne yok).");
+        }
+        return {
+          title: parsed.title.trim(),
+          scenes: [parsed.scene1],
+          provider: `fal:${LLM_MODEL}`,
+        };
       }
       const parsed = extractJson<{
         title: string;
@@ -320,8 +350,10 @@ export const falProvider: AiProvider = {
           `LLM çıktısı eksik (başlık veya ${expected} sahne yok).`
         );
       }
+      // Sabitlenen başlık/1. sahneyi LLM'e güvenmeden zorla — kapak basıldı.
+      if (input.fixedFirstScene) parsed.scenes[0] = input.fixedFirstScene;
       return {
-        title: parsed.title.trim(),
+        title: (input.fixedTitle ?? parsed.title).trim(),
         scenes: parsed.scenes,
         provider: `fal:${LLM_MODEL}`,
       };

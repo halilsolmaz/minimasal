@@ -39,8 +39,15 @@ export type GenerateImageResult = {
 };
 
 export type WriteStoryInput = StoryInput & {
-  scope: "teaser" | "full"; // teaser: sadece başlık; full: sahne metinleri
-  scenes?: number; // full için sahne sayısı (pakete göre 5/8/10; vars. 5)
+  // teaser: başlık + 1. sahne (önizlemede gösterilir);
+  // full: tüm sahneler (pakete göre 5/8/10)
+  scope: "teaser" | "full";
+  scenes?: number; // full için sahne sayısı (vars. 5)
+  // Önizlemede üretilmiş 1. sahne ve başlık — tam kitap yazımında AYNEN
+  // korunur (önizleme kapağı ve 1. sahne görseli yeniden kullanılacağı
+  // için metin/başlık da sabit kalmalı).
+  fixedFirstScene?: StoryScene;
+  fixedTitle?: string;
 };
 
 // Bir sahne = kitapta bir çift sayfa: solda pageText, sağda görsel.
@@ -53,7 +60,8 @@ export type StoryScene = {
 
 export type WriteStoryResult = {
   title: string;
-  scenes?: StoryScene[]; // scope "full" ise pakete göre 5/8/10 sahne
+  // teaser: tek elemanlı (1. sahne); full: pakete göre 5/8/10 sahne
+  scenes?: StoryScene[];
   provider: string;
 };
 

@@ -49,18 +49,24 @@ export function checkTeaserLimits(ip: string): TeaserLimitCheck {
   return { ok: true };
 }
 
+export type TeaserScene = { pageText: string; imageBrief: string };
+
 export function saveTeaser(params: {
   ip: string;
   childName: string;
   themeId: string;
   title: string;
   provider: string;
-  imageData: string; // filigranlı önizlemenin data URL'i
+  imageData: string; // filigranlı kapak önizlemesi (data URL)
+  scene1: TeaserScene; // 1. sahne metni + görsel tarifi
+  coverRaw: string; // HAM kapak (data URL) — siparişte yeniden kullanılır
+  page1Raw: string; // HAM 1. sahne görseli — siparişte yeniden kullanılır
 }): string {
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO teasers (id, ip, child_name, theme_id, title, provider, image_data)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO teasers (id, ip, child_name, theme_id, title, provider,
+                          image_data, scene1_json, cover_raw, page1_raw)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     params.ip,
@@ -68,7 +74,42 @@ export function saveTeaser(params: {
     params.themeId,
     params.title,
     params.provider,
-    params.imageData
+    params.imageData,
+    JSON.stringify(params.scene1),
+    params.coverRaw,
+    params.page1Raw
   );
   return id;
+}
+
+export type StoredTeaser = {
+  id: string;
+  title: string;
+  scene1: TeaserScene | null;
+  coverRaw: string | null;
+  page1Raw: string | null;
+};
+
+export function getTeaser(id: string): StoredTeaser | null {
+  const row = db
+    .prepare(
+      "SELECT id, title, scene1_json, cover_raw, page1_raw FROM teasers WHERE id = ?"
+    )
+    .get(id) as
+    | {
+        id: string;
+        title: string;
+        scene1_json: string | null;
+        cover_raw: string | null;
+        page1_raw: string | null;
+      }
+    | undefined;
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    scene1: row.scene1_json ? JSON.parse(row.scene1_json) : null,
+    coverRaw: row.cover_raw,
+    page1Raw: row.page1_raw,
+  };
 }

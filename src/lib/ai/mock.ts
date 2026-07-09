@@ -104,6 +104,12 @@ function buildTitle(input: WriteStoryInput): string {
       return `Küçük Kahraman ${input.childName}`;
     case "sihirli-kesif":
       return `${input.childName} ve ${label("diyar") ?? "Sihirli Diyar"}`;
+    case "uzay-macerasi":
+      return `${input.childName} Uzayda`;
+    case "dinozor-vadisi":
+      return `${input.childName} ve Dinozor Vadisi`;
+    case "peri-bahcesi":
+      return `${input.childName} ve Peri Bahçesi`;
     default:
       return `${input.childName} ve Büyük Macera`;
   }
@@ -121,7 +127,13 @@ export const mockProvider: AiProvider = {
 
   async writeStory(input: WriteStoryInput): Promise<WriteStoryResult> {
     const title = buildTitle(input);
-    if (input.scope === "teaser") return { title, provider: "mock" };
+    const firstScene = {
+      pageText: `Bir varmış bir yokmuş, ${input.childName} adında ${input.age} yaşında bir çocuk varmış. Gözleri pırıl pırıl, yüreği kocaman mıymış? Hem de nasıl! ${input.childName} her sabah penceresinden dünyaya merakla bakarmış. "Acaba bugün ne keşfedeceğim?" dermiş.`,
+      imageBrief: `A cheerful child waking up happily in a cozy bedroom, morning light, looking out the window with curiosity.`,
+    };
+    if (input.scope === "teaser") {
+      return { title, scenes: [input.fixedFirstScene ?? firstScene], provider: "mock" };
+    }
     // 5 sahnelik sabit iskelet (Tanışma → Çağrı → Zorluk → Zafer → Dönüş).
     // Her sahne = 1 yazı sayfası (4-8 cümle, büyük punto) + 1 resim sayfası.
     // Gerçek LLM (fal.ts) her sahneyi yaşa göre yazacak; bu şablon sadece
@@ -149,6 +161,7 @@ export const mockProvider: AiProvider = {
         imageBrief: `The child back home at dusk, warm hug, then sleeping peacefully with a gentle smile, cozy night lighting.`,
       },
     ];
-    return { title, scenes, provider: "mock" };
+    if (input.fixedFirstScene) scenes[0] = input.fixedFirstScene;
+    return { title: input.fixedTitle ?? title, scenes, provider: "mock" };
   },
 };
