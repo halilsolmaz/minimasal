@@ -12,6 +12,7 @@ import {
 import { PACKAGES } from "@/lib/brand";
 import { getTheme } from "@/lib/themes";
 import { getRelation } from "@/lib/characters";
+import { COUPLE_QUESTIONS } from "@/lib/couple";
 import { setStatusAction } from "../actions";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -71,16 +72,50 @@ export default async function AdminOrderPage({
               {order.createdAt} · ₺{order.price} · {pkg?.label ?? order.packageId}
             </p>
 
-            <h2 className="mt-6 font-bold text-ink">Kitap bilgileri</h2>
-            <dl className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              <Row label="Kahraman" value={order.childName} />
-              <Row label="Yaş / Cinsiyet" value={`${order.age} · ${order.gender === "kiz" ? "Kız" : "Erkek"}`} />
-              <Row label="Tema" value={`${theme?.emoji ?? ""} ${theme?.title ?? order.themeId}`} />
-              <Row label="Sevdiği şey" value={order.favorite ?? "—"} />
-              {choiceRows.map((c) => (
-                <Row key={c.question} label={c.question} value={c.answer} />
-              ))}
-            </dl>
+            {order.product === "cift" && order.couple ? (
+              <>
+                <h2 className="mt-6 font-bold text-ink">Anı kitabı bilgileri 💞</h2>
+                <dl className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <Row label="Çift" value={order.childName} />
+                  <Row label="İlişki" value={order.couple.relationship} />
+                  <Row
+                    label={`${order.couple.partner1.name}'e hitap`}
+                    value={order.couple.nickname1 || "—"}
+                  />
+                  <Row
+                    label={`${order.couple.partner2.name}'e hitap`}
+                    value={order.couple.nickname2 || "—"}
+                  />
+                </dl>
+                <h3 className="mt-4 font-bold text-ink text-sm">
+                  Anılar ({order.couple.answers.length})
+                </h3>
+                <ul className="mt-2 space-y-2 text-sm">
+                  {order.couple.answers.map((a) => (
+                    <li key={a.questionId} className="rounded-xl bg-cream-deep p-3">
+                      <div className="font-bold text-ink-soft text-xs uppercase">
+                        {COUPLE_QUESTIONS.find((q) => q.id === a.questionId)
+                          ?.title ?? a.questionId}
+                      </div>
+                      <p className="mt-1 text-ink">{a.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <>
+                <h2 className="mt-6 font-bold text-ink">Kitap bilgileri</h2>
+                <dl className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <Row label="Kahraman" value={order.childName} />
+                  <Row label="Yaş / Cinsiyet" value={`${order.age} · ${order.gender === "kiz" ? "Kız" : "Erkek"}`} />
+                  <Row label="Tema" value={`${theme?.emoji ?? ""} ${theme?.title ?? order.themeId}`} />
+                  <Row label="Sevdiği şey" value={order.favorite ?? "—"} />
+                  {choiceRows.map((c) => (
+                    <Row key={c.question} label={c.question} value={c.answer} />
+                  ))}
+                </dl>
+              </>
+            )}
 
             <h2 className="mt-6 font-bold text-ink">Alıcı</h2>
             <dl className="mt-2 grid sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
@@ -125,6 +160,30 @@ export default async function AdminOrderPage({
         </div>
 
         <aside className="rounded-2xl bg-white border border-ink/10 p-6">
+          {order.product === "cift" && order.couple ? (
+            <>
+              <h2 className="font-bold text-ink">Çiftin fotoğrafları</h2>
+              {([order.couple.partner1, order.couple.partner2] as const).map(
+                (p) => (
+                  <div key={p.name} className="mt-3">
+                    <div className="text-sm font-bold text-ink">{p.name}</div>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {p.photoDatas.map((ph, i) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={i}
+                          src={ph}
+                          alt=""
+                          className="h-20 w-20 rounded-xl object-cover"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+            </>
+          ) : (
+            <>
           <h2 className="font-bold text-ink">
             Yüklenen fotoğraf{order.photoDatas.length > 1 ? "lar" : ""}
           </h2>
@@ -179,6 +238,8 @@ export default async function AdminOrderPage({
                   );
                 })}
               </ul>
+            </>
+          )}
             </>
           )}
         </aside>

@@ -61,6 +61,16 @@ function createDb(): Database.Database {
     // oradan yeniden kullanılır (üretim maliyeti boşa gitmez).
     db.exec("ALTER TABLE orders ADD COLUMN teaser_id TEXT");
   }
+  if (!orderCols.includes("product")) {
+    // Ürün hattı (2026-07-19): 'cocuk' (masal kitabı) | 'cift' (anı kitabı).
+    db.exec("ALTER TABLE orders ADD COLUMN product TEXT NOT NULL DEFAULT 'cocuk'");
+  }
+  if (!orderCols.includes("couple_json")) {
+    // Çift siparişinin tüm verisi: partnerler (isim+fotolar), ilişki,
+    // hitaplar ve cevaplanan anılar. Çocuk kolonları çift siparişinde
+    // nötr değerlerle doldurulur (child_name = "A & B" vb.).
+    db.exec("ALTER TABLE orders ADD COLUMN couple_json TEXT");
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS teasers (
       id          TEXT PRIMARY KEY,

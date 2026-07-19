@@ -115,6 +115,41 @@ function buildTitle(input: WriteStoryInput): string {
   }
 }
 
+// Diğer ürün hatları için anahtarsız sahte görsel: etiketli placeholder,
+// istenirse ilk referans foto yuvarlak olarak ortaya bindirilir.
+export async function mockRawImage(
+  label: string,
+  photos: string[] = []
+): Promise<Buffer> {
+  await new Promise((r) => setTimeout(r, 300));
+  const base = sharp(Buffer.from(coverSvg(label, "💞")));
+  const first = photos[0];
+  if (first?.startsWith("data:image/")) {
+    try {
+      const buf = Buffer.from(first.split(",")[1], "base64");
+      const photo = await sharp(buf)
+        .resize(220, 220, { fit: "cover" })
+        .composite([
+          {
+            input: Buffer.from(
+              `<svg width="220" height="220"><circle cx="110" cy="110" r="110" fill="#fff"/></svg>`
+            ),
+            blend: "dest-in",
+          },
+        ])
+        .png()
+        .toBuffer();
+      return base
+        .composite([{ input: photo, left: COVER_W / 2 - 110, top: 320 }])
+        .jpeg()
+        .toBuffer();
+    } catch {
+      // foto bozuksa etiketli düz görselle devam
+    }
+  }
+  return base.jpeg().toBuffer();
+}
+
 export const mockProvider: AiProvider = {
   name: "mock",
 

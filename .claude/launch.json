@@ -6,6 +6,12 @@
       "runtimeExecutable": "cmd.exe",
       "runtimeArgs": ["/c", "set PATH=C:\\Program Files\\nodejs;%PATH% && npm run dev"],
       "port": 3000
+    },
+    {
+      "name": "mt-eval-frontend",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "cd /d C:\\Users\\halil\\Desktop\\MT\\mt_eval_ref\\frontend && set PATH=C:\\Program Files\\nodejs;%PATH% && npm run dev"],
+      "port": 3000
     }
   ]
 }

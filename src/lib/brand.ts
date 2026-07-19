@@ -19,6 +19,24 @@ export type Package = {
   perks: string[];
 };
 
+// ÇİFT ANI KİTABI paketi (2. ürün hattı, 2026-07-19): her anı = 1 tam sayfa
+// görsel + konuşma baloncuğu. Tek paketle başlanıyor; fiyat geçici.
+export const COUPLE_PACKAGES: Package[] = [
+  {
+    id: "cift-ani",
+    pages: 10,
+    scenes: 10, // en fazla anı sayfası (MAX_MEMORY_PAGES ile uyumlu)
+    price: 899,
+    label: "Anı Kitabı",
+    perks: [
+      "10 anı sayfasına kadar (tam sayfa görsel + baloncuklar)",
+      "İki kişilik karakter benzerliği",
+      "Dijital önizleme",
+      "Sert kapak baskı",
+    ],
+  },
+];
+
 // Fiyatlar geçici — matbaa maliyeti netleşince güncellenecek.
 // Format kararı (2026-07-07): sayfa = çift sayfa düzeni; sahne başına
 // solda 4-8 cümlelik metin, sağda tam sayfa görsel.

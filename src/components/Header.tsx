@@ -22,6 +22,9 @@ export default function Header() {
           <a href="/#fiyatlar" className="hover:text-primary transition-colors">
             Fiyatlar
           </a>
+          <Link href="/cift" className="hover:text-primary transition-colors">
+            Çiftler için 💞
+          </Link>
           <Link href="/sss" className="hover:text-primary transition-colors">
             SSS
           </Link>

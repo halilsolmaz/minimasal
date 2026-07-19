@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BRAND } from "@/lib/brand";
 
 const LINKS = [
+  { href: "/olustur", label: "Çocuk Masalı" },
+  { href: "/cift", label: "Çift Anı Kitabı" },
   { href: "/sss", label: "SSS" },
   { href: "/hakkimizda", label: "Hakkımızda" },
   { href: "/iletisim", label: "İletişim" },

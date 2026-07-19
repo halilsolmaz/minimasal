@@ -101,6 +101,45 @@ export default function Home() {
         </div>
       </section>
 
+      {/* KATEGORİLER: iki ürün hattı */}
+      <section className="mx-auto max-w-6xl px-5 py-14">
+        <div className="grid md:grid-cols-2 gap-6">
+          <Link
+            href="/olustur"
+            className="group rounded-3xl bg-white border-2 border-ink/5 p-8 shadow-[var(--shadow-soft)] hover:border-primary/40 hover:shadow-[var(--shadow-lift)] transition"
+          >
+            <span className="text-5xl">🧒</span>
+            <h2 className="mt-4 font-display font-bold text-2xl text-ink">
+              Çocuğunuz için Masal Kitabı
+            </h2>
+            <p className="mt-2 text-ink-soft">
+              Fotoğrafından, onun kahraman olduğu resimli bir masal. 6 tema,
+              yaşına göre yazılmış hikaye, aile üyeleri de katılabilir.
+            </p>
+            <span className="mt-4 inline-block font-bold text-primary-dark group-hover:translate-x-1 transition-transform">
+              Masalı oluştur →
+            </span>
+          </Link>
+          <Link
+            href="/cift"
+            className="group rounded-3xl bg-white border-2 border-ink/5 p-8 shadow-[var(--shadow-soft)] hover:border-pink/60 hover:shadow-[var(--shadow-lift)] transition"
+          >
+            <span className="text-5xl">💞</span>
+            <h2 className="mt-4 font-display font-bold text-2xl text-ink">
+              Sevgilinize Anı Kitabı
+            </h2>
+            <p className="mt-2 text-ink-soft">
+              Tanışmanızdan bugüne anılarınız, sahne sahne resmedilir —
+              konuşma baloncuklarında sizin sözleriniz. Yıldönümü ve
+              sevgililer günü için birebir.
+            </p>
+            <span className="mt-4 inline-block font-bold text-primary-dark group-hover:translate-x-1 transition-transform">
+              Anı kitabını oluştur →
+            </span>
+          </Link>
+        </div>
+      </section>
+
       {/* NASIL ÇALIŞIR */}
       <section id="nasil" className="mx-auto max-w-6xl px-5 py-20">
         <div className="text-center max-w-2xl mx-auto">

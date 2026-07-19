@@ -109,7 +109,7 @@ export default async function AdminPage({
                       {o.createdAt}
                     </td>
                     <td className="px-4 py-3 font-bold text-ink">
-                      {o.childName}
+                      {o.product === "cift" ? "💞" : "🧒"} {o.childName}
                     </td>
                     <td className="px-4 py-3">{pkg?.label ?? o.packageId}</td>
                     <td className="px-4 py-3">₺{o.price}</td>

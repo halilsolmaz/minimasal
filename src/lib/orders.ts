@@ -3,8 +3,14 @@
 
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { PACKAGES } from "./brand";
+import { PACKAGES, COUPLE_PACKAGES } from "./brand";
 import { getTheme } from "./themes";
+import {
+  RELATIONSHIPS,
+  COUPLE_QUESTIONS,
+  MAX_PARTNER_PHOTOS,
+  MIN_ANSWERED_MEMORIES,
+} from "./couple";
 import {
   getRelation,
   MAX_COMPANIONS,
@@ -49,16 +55,31 @@ export type OrderCompanion = {
   photoDatas: string[]; // 1-2 referans fotoğraf
 };
 
+// Çift anı kitabı sipariş verisi (product = "cift").
+export type CoupleOrderData = {
+  partner1: { name: string; photoDatas: string[] };
+  partner2: { name: string; photoDatas: string[] };
+  relationship: string;
+  nickname1?: string;
+  nickname2?: string;
+  answers: { questionId: string; text: string }[];
+};
+
 export type NewOrderInput = {
-  childName: string;
-  age: number;
-  gender: "kiz" | "erkek";
-  themeId: string;
-  options: Record<string, string>;
+  product?: "cocuk" | "cift"; // vars. "cocuk"
+  // --- çocuk masal kitabı alanları (product = "cocuk") ---
+  childName?: string;
+  age?: number;
+  gender?: "kiz" | "erkek";
+  themeId?: string;
+  options?: Record<string, string>;
   favorite?: string;
   photoDatas?: string[]; // çocuğun fotoğrafları (1-3)
   companions?: OrderCompanion[];
-  teaserId?: string; // önizleme kaydı — kapak + 1. sahne oradan kullanılır
+  // --- çift anı kitabı alanları (product = "cift") ---
+  couple?: CoupleOrderData;
+  // --- ortak ---
+  teaserId?: string; // önizleme kaydı — kapak + 1. sahne/sayfa oradan kullanılır
   packageId: string;
   customer: {
     name: string;
@@ -75,9 +96,11 @@ export type Order = {
   id: string;
   createdAt: string;
   status: OrderStatus;
-  childName: string;
-  age: number;
-  gender: "kiz" | "erkek";
+  product: "cocuk" | "cift";
+  couple: CoupleOrderData | null; // product "cift" ise dolu
+  childName: string; // çiftte "A & B" görünen adı
+  age: number; // çiftte 0 (kullanılmaz)
+  gender: "kiz" | "erkek" | "-"; // çiftte "-"
   themeId: string;
   options: Record<string, string>;
   favorite: string | null;
@@ -107,26 +130,55 @@ function requireText(value: unknown, field: string, min = 2): string {
   return value.trim();
 }
 
-function validate(input: NewOrderInput) {
-  const childName = requireText(input.childName, "Çocuğun adı");
-  if (!Number.isInteger(input.age) || input.age < 3 || input.age > 9) {
-    throw new OrderValidationError("Yaş 3 ile 9 arasında olmalı.");
-  }
-  if (input.gender !== "kiz" && input.gender !== "erkek") {
-    throw new OrderValidationError("Cinsiyet seçimi geçersiz.");
-  }
+const badPhoto = (p: unknown) =>
+  typeof p !== "string" ||
+  !p.startsWith("data:image/") ||
+  p.length > MAX_PHOTO_DATA_CHARS;
 
-  const theme = getTheme(input.themeId);
-  if (!theme) throw new OrderValidationError("Geçersiz tema.");
-  for (const opt of theme.options) {
-    const choice = input.options?.[opt.id];
-    if (!choice || !opt.choices.some((c) => c.id === choice)) {
-      throw new OrderValidationError(`Tema seçimi eksik: ${opt.question}`);
+// Çift siparişi doğrulaması — displayName ("A & B") döner.
+function validateCouple(couple: CoupleOrderData | undefined): string {
+  if (!couple) throw new OrderValidationError("Çift bilgileri eksik.");
+  for (const key of ["partner1", "partner2"] as const) {
+    const p = couple[key];
+    requireText(p?.name, "İsim");
+    if (
+      !Array.isArray(p?.photoDatas) ||
+      p.photoDatas.length < 1 ||
+      p.photoDatas.length > MAX_PARTNER_PHOTOS ||
+      p.photoDatas.some(badPhoto)
+    ) {
+      throw new OrderValidationError("Her iki kişi için geçerli fotoğraf gerekli.");
     }
   }
+  if (!RELATIONSHIPS.some((r) => r.id === couple.relationship)) {
+    throw new OrderValidationError("İlişki türü geçersiz.");
+  }
+  if (
+    (couple.nickname1 && couple.nickname1.length > 30) ||
+    (couple.nickname2 && couple.nickname2.length > 30)
+  ) {
+    throw new OrderValidationError("Hitaplar çok uzun.");
+  }
+  if (!Array.isArray(couple.answers)) {
+    throw new OrderValidationError("Anılar eksik.");
+  }
+  const valid = couple.answers.filter(
+    (a) =>
+      COUPLE_QUESTIONS.some((q) => q.id === a.questionId) &&
+      typeof a.text === "string" &&
+      a.text.trim().length >= 20 &&
+      a.text.length <= 2000
+  );
+  if (valid.length < MIN_ANSWERED_MEMORIES) {
+    throw new OrderValidationError(
+      `En az ${MIN_ANSWERED_MEMORIES} anı yazılmalı.`
+    );
+  }
+  return `${couple.partner1.name.trim()} & ${couple.partner2.name.trim()}`;
+}
 
-  const pkg = PACKAGES.find((p) => p.id === input.packageId);
-  if (!pkg) throw new OrderValidationError("Geçersiz paket.");
+function validate(input: NewOrderInput) {
+  const product: "cocuk" | "cift" = input.product === "cift" ? "cift" : "cocuk";
 
   if (
     input.teaserId &&
@@ -135,10 +187,33 @@ function validate(input: NewOrderInput) {
     throw new OrderValidationError("Önizleme kaydı geçersiz.");
   }
 
-  const badPhoto = (p: unknown) =>
-    typeof p !== "string" ||
-    !p.startsWith("data:image/") ||
-    p.length > MAX_PHOTO_DATA_CHARS;
+  const pkg = (product === "cift" ? COUPLE_PACKAGES : PACKAGES).find(
+    (p) => p.id === input.packageId
+  );
+  if (!pkg) throw new OrderValidationError("Geçersiz paket.");
+
+  if (product === "cift") {
+    const displayName = validateCouple(input.couple);
+    const customer = validateCustomer(input);
+    return { product, childName: displayName, pkg, customer };
+  }
+
+  const childName = requireText(input.childName, "Çocuğun adı");
+  if (!Number.isInteger(input.age) || input.age! < 3 || input.age! > 9) {
+    throw new OrderValidationError("Yaş 3 ile 9 arasında olmalı.");
+  }
+  if (input.gender !== "kiz" && input.gender !== "erkek") {
+    throw new OrderValidationError("Cinsiyet seçimi geçersiz.");
+  }
+
+  const theme = getTheme(input.themeId ?? "");
+  if (!theme) throw new OrderValidationError("Geçersiz tema.");
+  for (const opt of theme.options) {
+    const choice = input.options?.[opt.id];
+    if (!choice || !opt.choices.some((c) => c.id === choice)) {
+      throw new OrderValidationError(`Tema seçimi eksik: ${opt.question}`);
+    }
+  }
 
   if (input.photoDatas) {
     if (
@@ -177,6 +252,11 @@ function validate(input: NewOrderInput) {
     }
   }
 
+  const customer = validateCustomer(input);
+  return { product, childName, pkg, customer };
+}
+
+function validateCustomer(input: NewOrderInput) {
   const customer = {
     name: requireText(input.customer?.name, "Ad soyad", 3),
     email: requireText(input.customer?.email, "E-posta", 5),
@@ -189,31 +269,33 @@ function validate(input: NewOrderInput) {
   if (!/^\S+@\S+\.\S+$/.test(customer.email)) {
     throw new OrderValidationError("E-posta adresi geçersiz görünüyor.");
   }
-
-  return { childName, theme, pkg, customer };
+  return customer;
 }
 
 export function createOrder(input: NewOrderInput): Order {
-  const { childName, pkg, customer } = validate(input);
+  const { product, childName, pkg, customer } = validate(input);
   const id = randomUUID();
+  const isCouple = product === "cift";
 
   db.prepare(
     `INSERT INTO orders (
-      id, child_name, age, gender, theme_id, options_json, favorite,
-      photo_data, photos_json, companions_json, teaser_id, package_id, price,
-      customer_name, email, phone, address, district, city, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      id, product, child_name, age, gender, theme_id, options_json, favorite,
+      photo_data, photos_json, companions_json, couple_json, teaser_id,
+      package_id, price, customer_name, email, phone, address, district, city, note
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
-    childName,
-    input.age,
-    input.gender,
-    input.themeId,
-    JSON.stringify(input.options),
-    input.favorite?.trim() || null,
-    input.photoDatas?.[0] || null, // ilk foto ayrıca burada (geri uyumluluk)
-    input.photoDatas?.length ? JSON.stringify(input.photoDatas) : null,
-    input.companions?.length ? JSON.stringify(input.companions) : null,
+    product,
+    childName, // çiftte "A & B" görünen adı
+    isCouple ? 0 : input.age,
+    isCouple ? "-" : input.gender,
+    isCouple ? "cift" : input.themeId,
+    JSON.stringify(isCouple ? {} : input.options),
+    isCouple ? null : input.favorite?.trim() || null,
+    (isCouple ? input.couple!.partner1.photoDatas[0] : input.photoDatas?.[0]) || null,
+    !isCouple && input.photoDatas?.length ? JSON.stringify(input.photoDatas) : null,
+    !isCouple && input.companions?.length ? JSON.stringify(input.companions) : null,
+    isCouple ? JSON.stringify(input.couple) : null,
     input.teaserId || null,
     pkg.id,
     pkg.price,
@@ -233,9 +315,11 @@ type OrderRow = {
   id: string;
   created_at: string;
   status: OrderStatus;
+  product: "cocuk" | "cift" | null;
+  couple_json: string | null;
   child_name: string;
   age: number;
-  gender: "kiz" | "erkek";
+  gender: "kiz" | "erkek" | "-";
   theme_id: string;
   options_json: string;
   favorite: string | null;
@@ -259,6 +343,7 @@ export type OrderListItem = {
   id: string;
   createdAt: string;
   status: OrderStatus;
+  product: "cocuk" | "cift";
   childName: string;
   packageId: string;
   price: number;
@@ -269,7 +354,7 @@ export type OrderListItem = {
 export function listOrders(): OrderListItem[] {
   const rows = db
     .prepare(
-      `SELECT id, created_at, status, child_name, package_id, price,
+      `SELECT id, created_at, status, product, child_name, package_id, price,
               customer_name, city
        FROM orders ORDER BY created_at DESC`
     )
@@ -279,6 +364,7 @@ export function listOrders(): OrderListItem[] {
       | "id"
       | "created_at"
       | "status"
+      | "product"
       | "child_name"
       | "package_id"
       | "price"
@@ -290,6 +376,7 @@ export function listOrders(): OrderListItem[] {
     id: r.id,
     createdAt: r.created_at,
     status: r.status,
+    product: r.product ?? "cocuk",
     childName: r.child_name,
     packageId: r.package_id,
     price: r.price,
@@ -317,6 +404,8 @@ export function getOrder(id: string): Order | null {
     id: row.id,
     createdAt: row.created_at,
     status: row.status,
+    product: row.product ?? "cocuk",
+    couple: row.couple_json ? JSON.parse(row.couple_json) : null,
     childName: row.child_name,
     age: row.age,
     gender: row.gender,

@@ -279,7 +279,10 @@ function extractJson<T>(text: string): T {
   return JSON.parse(text.slice(start, end + 1)) as T;
 }
 
-async function callLlm(prompt: string): Promise<string> {
+async function callLlm(
+  prompt: string,
+  systemPrompt: string = STORY_SYSTEM_PROMPT
+): Promise<string> {
   const key = process.env.FAL_KEY;
   if (!key) throw new Error("FAL_KEY tanımlı değil (.env.local).");
   const res = await fetch(LLM_ENDPOINT, {
@@ -290,7 +293,7 @@ async function callLlm(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: LLM_MODEL,
-      system_prompt: STORY_SYSTEM_PROMPT,
+      system_prompt: systemPrompt,
       prompt,
       temperature: 0.8,
       max_tokens: 4000,
@@ -306,6 +309,16 @@ async function callLlm(prompt: string): Promise<string> {
   }
   return json.output;
 }
+
+// Diğer ürün hatlarının (ör. çift anı kitabı) kullandığı ham yardımcılar.
+// Sağlayıcı seçimi yine ai/ altındaki ürün modülünde yapılır.
+export function falRawImage(prompt: string, refs: string[]): Promise<Buffer> {
+  return callFal(prompt, refs);
+}
+export function falRawLlm(systemPrompt: string, prompt: string): Promise<string> {
+  return callLlm(prompt, systemPrompt);
+}
+export { extractJson };
 
 export const falProvider: AiProvider = {
   name: "fal",

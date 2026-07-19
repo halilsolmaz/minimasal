@@ -18,7 +18,7 @@ AI kullanarak **kişiselleştirilmiş hediye kitapları** satan bir e-ticaret gi
 İki ürün hattı planlandı; **şu an sadece 1. hat geliştiriliyor:**
 
 1. **Çocuk masal kitabı (AKTİF):** Çocuğun fotoğrafından, onun kahramanı olduğu resimli bir masal kitabı üretilir, basılır ve kargolanır.
-2. **Çift/sevgili anı kitabı (SONRAYA BIRAKILDI):** Çiftlerin fotoğraflarından, anılarını anlatan resimli kitap. Konuşma baloncukları olacak. Şimdilik dokunulmuyor.
+2. **Çift/sevgili anı kitabı (BAŞLADI 2026-07-19, kurucu kararı):** Çiftin fotoğrafları (kişi başı 1-3) + sırayla anı soruları (tanışma zorunlu; ilişki türüne göre dallanır: sevgili/nişanlı/evli) + hitaplar/lakaplar. **Hikaye YOK** — her anı 1 tam sayfa görsele resmedilir, üzerine **konuşma baloncuğu** (kısa tatlı söz, hitaplar kullanılır). KRİTİK KARAR: baloncuk metni görsele AI ile ÇİZDİRİLMEZ; sunucuda sharp ile basılır (`src/lib/ai/bubbles.ts`) → yazı hatası imkânsız, admin görseli yeniden üretmeden düzeltebilir. Sayfa görselinde üst %20 sakin bırakılır (baloncuk alanı). Yapı: soru seti `src/lib/couple.ts` (KOLAY DEĞİŞİR, min 4 anı, max 10 sayfa), sihirbaz `/cift`, önizleme `/api/cift-onizleme` (kapak + ilk anı, teaser yeniden kullanımı çocukla aynı), checkout `/siparis?tur=cift` (paket: COUPLE_PACKAGES), sipariş `product='cift'` + `couple_json`, üretim `bookRun.ts runCoupleBook`. LLM sahne çevirisi: `src/lib/ai/couple.ts` (uydurma yasak, sadece anlatılan anıdan). Mock ile uçtan uca test edildi; GERÇEK AI üretim testi bekliyor.
 
 **Kurucu:** halilsolmaz1995@gmail.com — C++ geliştiricisi, web stack'ine hâkim değil; **tüm web geliştirmesini AI asistan yapıyor.** Açıklamalar Türkçe ve sade olmalı.
 

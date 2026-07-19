@@ -6,7 +6,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BRAND, PACKAGES } from "@/lib/brand";
+import { BRAND, PACKAGES, COUPLE_PACKAGES } from "@/lib/brand";
 import { getTheme } from "@/lib/themes";
 import {
   loadWizardState,
@@ -15,6 +15,15 @@ import {
   PREVIEW_STORAGE_KEY,
   type WizardState,
 } from "@/lib/wizard";
+import {
+  loadCoupleState,
+  clearCoupleState,
+  isCoupleComplete,
+  answeredCount,
+  COUPLE_PREVIEW_STORAGE_KEY,
+  RELATIONSHIPS,
+  type CoupleWizardState,
+} from "@/lib/couple";
 
 type CustomerForm = {
   name: string;
@@ -38,7 +47,10 @@ const emptyCustomer: CustomerForm = {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  // mode: hangi ürün? URL'den okunur (/siparis → çocuk, /siparis?tur=cift → çift)
+  const [mode, setMode] = useState<"cocuk" | "cift">("cocuk");
   const [wizard, setWizard] = useState<WizardState | null>(null);
+  const [couple, setCouple] = useState<CoupleWizardState | null>(null);
   const [checked, setChecked] = useState(false);
   const [packageId, setPackageId] = useState("klasik");
   const [customer, setCustomer] = useState<CustomerForm>(emptyCustomer);
@@ -46,12 +58,22 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const saved = loadWizardState();
-    if (saved && isWizardComplete(saved.data)) setWizard(saved.data);
+    const isCouple =
+      new URLSearchParams(window.location.search).get("tur") === "cift";
+    if (isCouple) {
+      setMode("cift");
+      setPackageId(COUPLE_PACKAGES[0].id);
+      const saved = loadCoupleState();
+      if (saved && isCoupleComplete(saved.data)) setCouple(saved.data);
+    } else {
+      const saved = loadWizardState();
+      if (saved && isWizardComplete(saved.data)) setWizard(saved.data);
+    }
     setChecked(true);
   }, []);
 
-  const pkg = PACKAGES.find((p) => p.id === packageId)!;
+  const packages = mode === "cift" ? COUPLE_PACKAGES : PACKAGES;
+  const pkg = packages.find((p) => p.id === packageId) ?? packages[0];
   const theme = wizard?.themeId ? getTheme(wizard.themeId) : undefined;
 
   const updateCustomer = (patch: Partial<CustomerForm>) =>
@@ -66,40 +88,68 @@ export default function CheckoutPage() {
     customer.city.trim().length >= 2;
 
   const submit = async () => {
-    if (!wizard || !canSubmit || submitting) return;
+    if ((mode === "cocuk" ? !wizard : !couple) || !canSubmit || submitting)
+      return;
     setSubmitting(true);
     setError(null);
-    // Önizleme üretildiyse teaserId'yi siparişe bağla — kapak ve 1. sahne
+    // Önizleme üretildiyse teaserId'yi siparişe bağla — kapak ve ilk sayfa
     // tam kitapta yeniden kullanılır (tekrar üretim maliyeti olmaz).
     let teaserId: string | undefined;
     try {
-      teaserId = JSON.parse(
-        sessionStorage.getItem(PREVIEW_STORAGE_KEY) ?? "null"
-      )?.teaserId;
+      const key =
+        mode === "cift" ? COUPLE_PREVIEW_STORAGE_KEY : PREVIEW_STORAGE_KEY;
+      teaserId = JSON.parse(sessionStorage.getItem(key) ?? "null")?.teaserId;
     } catch {
       // önizleme kaydı bozuksa teaser'sız devam
     }
+
+    const payload =
+      mode === "cift"
+        ? {
+            product: "cift",
+            couple: {
+              partner1: {
+                name: couple!.partner1.name,
+                photoDatas: couple!.partner1.photoUrls,
+              },
+              partner2: {
+                name: couple!.partner2.name,
+                photoDatas: couple!.partner2.photoUrls,
+              },
+              relationship: couple!.relationship,
+              nickname1: couple!.nickname1,
+              nickname2: couple!.nickname2,
+              answers: Object.entries(couple!.answers)
+                .filter(([, text]) => text.trim().length >= 20)
+                .map(([questionId, text]) => ({ questionId, text })),
+            },
+            teaserId,
+            packageId,
+            customer,
+          }
+        : {
+            childName: wizard!.childName,
+            age: wizard!.age,
+            gender: wizard!.gender,
+            themeId: wizard!.themeId,
+            options: wizard!.options,
+            favorite: wizard!.favorite,
+            photoDatas: wizard!.photoUrls,
+            companions: wizard!.companions.map((c) => ({
+              relationId: c.relationId,
+              name: c.name,
+              photoDatas: c.photoUrls,
+            })),
+            teaserId,
+            packageId,
+            customer,
+          };
+
     try {
       const res = await fetch("/api/siparis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          childName: wizard.childName,
-          age: wizard.age,
-          gender: wizard.gender,
-          themeId: wizard.themeId,
-          options: wizard.options,
-          favorite: wizard.favorite,
-          photoDatas: wizard.photoUrls,
-          companions: wizard.companions.map((c) => ({
-            relationId: c.relationId,
-            name: c.name,
-            photoDatas: c.photoUrls,
-          })),
-          teaserId,
-          packageId,
-          customer,
-        }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -107,7 +157,8 @@ export default function CheckoutPage() {
         setSubmitting(false);
         return;
       }
-      clearWizardState();
+      if (mode === "cift") clearCoupleState();
+      else clearWizardState();
       router.push(`/siparis/${json.id}`);
     } catch {
       setError("Sunucuya ulaşılamadı. Lütfen tekrar deneyin.");
@@ -118,22 +169,25 @@ export default function CheckoutPage() {
   // sessionStorage henüz okunmadıysa boş ekran çakmasını önle
   if (!checked) return null;
 
-  if (!wizard) {
+  if (mode === "cocuk" ? !wizard : !couple) {
     return (
       <div className="min-h-screen bg-magic flex flex-col items-center justify-center px-5 text-center">
-        <span className="text-5xl">📖</span>
+        <span className="text-5xl">{mode === "cift" ? "💞" : "📖"}</span>
         <h1 className="mt-4 font-display font-bold text-2xl text-ink">
-          Önce masalını oluşturalım
+          {mode === "cift"
+            ? "Önce anılarınızı toplayalım"
+            : "Önce masalını oluşturalım"}
         </h1>
         <p className="mt-2 text-ink-soft max-w-md">
-          Sipariş verebilmek için önce çocuğunuza özel masalı hazırlamanız
-          gerekiyor. Sadece birkaç dakika sürer.
+          {mode === "cift"
+            ? "Sipariş verebilmek için önce anı kitabınızı hazırlamanız (fotoğraflar + en az 4 anı) gerekiyor."
+            : "Sipariş verebilmek için önce çocuğunuza özel masalı hazırlamanız gerekiyor. Sadece birkaç dakika sürer."}
         </p>
         <Link
-          href="/olustur"
+          href={mode === "cift" ? "/cift" : "/olustur"}
           className="mt-6 rounded-full bg-primary px-7 py-3 text-sm font-bold text-white shadow-[var(--shadow-soft)] hover:bg-primary-dark transition"
         >
-          Kitabını Oluştur →
+          {mode === "cift" ? "Anı Kitabını Oluştur →" : "Kitabını Oluştur →"}
         </Link>
       </div>
     );
@@ -148,8 +202,11 @@ export default function CheckoutPage() {
             {BRAND.name}
           </span>
         </Link>
-        <Link href="/olustur" className="text-sm text-ink-soft hover:text-ink">
-          ← Masalı düzenle
+        <Link
+          href={mode === "cift" ? "/cift" : "/olustur"}
+          className="text-sm text-ink-soft hover:text-ink"
+        >
+          {mode === "cift" ? "← Anıları düzenle" : "← Masalı düzenle"}
         </Link>
       </header>
 
@@ -161,7 +218,7 @@ export default function CheckoutPage() {
               Paketini seç
             </h1>
             <div className="mt-5 grid sm:grid-cols-3 gap-3">
-              {PACKAGES.map((p) => (
+              {packages.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => setPackageId(p.id)}
@@ -253,22 +310,50 @@ export default function CheckoutPage() {
           <h2 className="font-display font-bold text-xl text-ink">
             Sipariş özeti
           </h2>
-          <div className="mt-4 flex items-center gap-4">
-            {wizard.photoUrls[0] && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={wizard.photoUrls[0]}
-                alt=""
-                className="h-16 w-16 rounded-xl object-cover"
-              />
-            )}
-            <div>
-              <div className="font-bold text-ink">{wizard.childName}</div>
-              <div className="text-sm text-ink-soft">
-                {theme?.emoji} {theme?.title}
+          {mode === "cift" && couple ? (
+            <div className="mt-4 flex items-center gap-4">
+              <div className="flex -space-x-3">
+                {[couple.partner1.photoUrls[0], couple.partner2.photoUrls[0]]
+                  .filter(Boolean)
+                  .map((p, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={p}
+                      alt=""
+                      className="h-16 w-16 rounded-xl object-cover border-2 border-white"
+                    />
+                  ))}
+              </div>
+              <div>
+                <div className="font-bold text-ink">
+                  {couple.partner1.name} & {couple.partner2.name}
+                </div>
+                <div className="text-sm text-ink-soft">
+                  💞{" "}
+                  {RELATIONSHIPS.find((r) => r.id === couple.relationship)?.label}{" "}
+                  · {answeredCount(couple)} anı
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="mt-4 flex items-center gap-4">
+              {wizard?.photoUrls[0] && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={wizard.photoUrls[0]}
+                  alt=""
+                  className="h-16 w-16 rounded-xl object-cover"
+                />
+              )}
+              <div>
+                <div className="font-bold text-ink">{wizard?.childName}</div>
+                <div className="text-sm text-ink-soft">
+                  {theme?.emoji} {theme?.title}
+                </div>
+              </div>
+            </div>
+          )}
           <dl className="mt-5 space-y-2 text-sm">
             <div className="flex justify-between">
               <dt className="text-ink-soft">{pkg.label}</dt>
