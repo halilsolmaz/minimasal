@@ -181,6 +181,22 @@ export default async function AdminOrderPage({
                   </div>
                 )
               )}
+              {(order.couple.togetherPhotoDatas?.length ?? 0) > 0 && (
+                <div className="mt-3">
+                  <div className="text-sm font-bold text-ink">Birlikte</div>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {order.couple.togetherPhotoDatas!.map((ph, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={i}
+                        src={ph}
+                        alt=""
+                        className="h-20 w-20 rounded-xl object-cover"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <>

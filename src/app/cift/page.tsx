@@ -12,6 +12,7 @@ import PhotoList, { validateAndRead } from "@/components/PhotoList";
 import {
   RELATIONSHIPS,
   MAX_PARTNER_PHOTOS,
+  MAX_TOGETHER_PHOTOS,
   MIN_ANSWERED_MEMORIES,
   COUPLE_PREVIEW_STORAGE_KEY,
   questionsFor,
@@ -101,6 +102,7 @@ export default function CoupleWizardPage() {
         body: JSON.stringify({
           partner1: { name: data.partner1.name, photoDatas: data.partner1.photoUrls },
           partner2: { name: data.partner2.name, photoDatas: data.partner2.photoUrls },
+          togetherPhotoDatas: data.togetherPhotoUrls,
           relationship: data.relationship,
           nickname1: data.nickname1,
           nickname2: data.nickname2,
@@ -222,6 +224,44 @@ export default function CoupleWizardPage() {
                   );
                 })}
               </div>
+
+              <div className="mt-8 rounded-2xl bg-cream-deep p-5">
+                <p className="font-bold text-ink">
+                  Birlikte fotoğraflarınız{" "}
+                  <span className="font-normal text-ink-soft">
+                    (isteğe bağlı ama çok faydalı)
+                  </span>
+                </p>
+                <p className="mt-1 text-sm text-ink-soft">
+                  İkinizin aynı karede olduğu {MAX_TOGETHER_PHOTOS} fotoğrafa
+                  kadar ekleyin — çizimlerde yan yana duruşunuz ve uyumunuz
+                  çok daha isabetli olur.
+                </p>
+                <div className="mt-3">
+                  <PhotoList
+                    photos={data.togetherPhotoUrls}
+                    max={MAX_TOGETHER_PHOTOS}
+                    compact
+                    onAdd={async (file) => {
+                      const err = await validateAndRead(file, (dataUrl) =>
+                        setData((d) => ({
+                          ...d,
+                          togetherPhotoUrls: [...d.togetherPhotoUrls, dataUrl],
+                        }))
+                      );
+                      setPhotoError(err);
+                    }}
+                    onRemove={(i) =>
+                      update({
+                        togetherPhotoUrls: data.togetherPhotoUrls.filter(
+                          (_, idx) => idx !== i
+                        ),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
               {photoError && (
                 <p className="mt-3 text-sm font-semibold text-red-600">
                   ⚠️ {photoError}

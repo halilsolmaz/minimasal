@@ -16,6 +16,9 @@ export const RELATIONSHIPS: { id: RelationshipId; label: string; emoji: string }
 ];
 
 export const MAX_PARTNER_PHOTOS = 3; // kişi başı referans fotoğraf
+// Birlikte çekilmiş fotoğraflar (2026-07-19, kurucu isteği): iki yüzü aynı
+// karede + boy farkı/duruş bilgisini verir — çift için en değerli referans.
+export const MAX_TOGETHER_PHOTOS = 2;
 
 // Sipariş verebilmek için en az kaç anı doldurulmalı (ilki her zaman zorunlu).
 export const MIN_ANSWERED_MEMORIES = 4;
@@ -123,6 +126,7 @@ export type Partner = { name: string; photoUrls: string[] };
 export type CoupleWizardState = {
   partner1: Partner; // formda solda — baloncuklarda "1. kişi"
   partner2: Partner;
+  togetherPhotoUrls: string[]; // birlikte çekilmiş fotoğraflar (0-2, opsiyonel)
   relationship: RelationshipId | null;
   nickname1: string; // partner2'nin partner1'e seslenişi (ör. "Aşkım")
   nickname2: string; // partner1'in partner2'ye seslenişi
@@ -135,6 +139,7 @@ export const COUPLE_PREVIEW_STORAGE_KEY = "minimasal-cift-onizleme";
 export const initialCoupleState: CoupleWizardState = {
   partner1: { name: "", photoUrls: [] },
   partner2: { name: "", photoUrls: [] },
+  togetherPhotoUrls: [],
   relationship: null,
   nickname1: "",
   nickname2: "",

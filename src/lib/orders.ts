@@ -9,6 +9,7 @@ import {
   RELATIONSHIPS,
   COUPLE_QUESTIONS,
   MAX_PARTNER_PHOTOS,
+  MAX_TOGETHER_PHOTOS,
   MIN_ANSWERED_MEMORIES,
 } from "./couple";
 import {
@@ -59,6 +60,7 @@ export type OrderCompanion = {
 export type CoupleOrderData = {
   partner1: { name: string; photoDatas: string[] };
   partner2: { name: string; photoDatas: string[] };
+  togetherPhotoDatas?: string[]; // birlikte fotoğraflar (0-2)
   relationship: string;
   nickname1?: string;
   nickname2?: string;
@@ -148,6 +150,15 @@ function validateCouple(couple: CoupleOrderData | undefined): string {
       p.photoDatas.some(badPhoto)
     ) {
       throw new OrderValidationError("Her iki kişi için geçerli fotoğraf gerekli.");
+    }
+  }
+  if (couple.togetherPhotoDatas) {
+    if (
+      !Array.isArray(couple.togetherPhotoDatas) ||
+      couple.togetherPhotoDatas.length > MAX_TOGETHER_PHOTOS ||
+      couple.togetherPhotoDatas.some(badPhoto)
+    ) {
+      throw new OrderValidationError("Birlikte fotoğraflar geçersiz.");
     }
   }
   if (!RELATIONSHIPS.some((r) => r.id === couple.relationship)) {

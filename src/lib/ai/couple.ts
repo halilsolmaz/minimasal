@@ -12,6 +12,9 @@ import type { Bubble } from "./bubbles";
 export type CoupleInput = {
   partner1: { name: string; photoDatas: string[] };
   partner2: { name: string; photoDatas: string[] };
+  // Birlikte çekilmiş fotoğraflar (opsiyonel): iki yüz aynı karede + boy
+  // farkı/duruş — modele "yan yana böyle görünüyorlar" bilgisini verir.
+  togetherPhotoDatas?: string[];
   relationship: RelationshipId;
   nickname1?: string; // partner1'e seslenilen
   nickname2?: string;
@@ -44,10 +47,21 @@ function refMap(input: CoupleInput): { refs: string[]; description: string } {
   const s2 = p1.photoDatas.length + 1;
   const e2 = p1.photoDatas.length + p2.photoDatas.length;
   const p2Range = p2.photoDatas.length > 1 ? `photos ${s2}-${e2}` : `photo ${s2}`;
-  const description =
+  let description =
     `Reference ${p1Range} show ${p1.name} and reference ${p2Range} show ${p2.name} — ` +
     `a real couple; keep BOTH faces clearly recognizable but stylized as warm ` +
     `illustration characters, NOT photorealistic. `;
+
+  const together = input.togetherPhotoDatas ?? [];
+  if (together.length > 0) {
+    const s3 = refs.length + 1;
+    refs.push(...together);
+    const range =
+      together.length > 1 ? `photos ${s3}-${refs.length}` : `photo ${s3}`;
+    description +=
+      `Reference ${range} show ${p1.name} and ${p2.name} TOGETHER — use them for ` +
+      `how the couple looks side by side (relative height, posture, chemistry). `;
+  }
   return { refs, description };
 }
 

@@ -116,6 +116,7 @@ export default function CheckoutPage() {
                 name: couple!.partner2.name,
                 photoDatas: couple!.partner2.photoUrls,
               },
+              togetherPhotoDatas: couple!.togetherPhotoUrls,
               relationship: couple!.relationship,
               nickname1: couple!.nickname1,
               nickname2: couple!.nickname2,

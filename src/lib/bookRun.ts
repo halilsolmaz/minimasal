@@ -174,6 +174,7 @@ async function runCoupleBook(
     const input: CoupleInput = {
       partner1: c.partner1,
       partner2: c.partner2,
+      togetherPhotoDatas: c.togetherPhotoDatas ?? [],
       relationship: c.relationship as RelationshipId,
       nickname1: c.nickname1,
       nickname2: c.nickname2,

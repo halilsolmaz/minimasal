@@ -13,7 +13,11 @@ import {
   type CoupleInput,
 } from "@/lib/ai/couple";
 import { checkTeaserLimits, saveTeaser } from "@/lib/teasers";
-import { RELATIONSHIPS, MAX_PARTNER_PHOTOS } from "@/lib/couple";
+import {
+  RELATIONSHIPS,
+  MAX_PARTNER_PHOTOS,
+  MAX_TOGETHER_PHOTOS,
+} from "@/lib/couple";
 
 type CouplePreviewRequest = CoupleInput & {
   tanisma: string; // ilk anının (tanışma) cevabı — önizleme sayfası bundan
@@ -37,6 +41,14 @@ function validationError(body: CouplePreviewRequest): string | null {
       p.photoDatas.some(badPhoto)
     )
       return "Her iki kişi için de en az bir geçerli fotoğraf gerekli.";
+  }
+  if (body.togetherPhotoDatas) {
+    if (
+      !Array.isArray(body.togetherPhotoDatas) ||
+      body.togetherPhotoDatas.length > MAX_TOGETHER_PHOTOS ||
+      body.togetherPhotoDatas.some(badPhoto)
+    )
+      return "Birlikte fotoğraflar geçersiz.";
   }
   if (!RELATIONSHIPS.some((r) => r.id === body.relationship))
     return "İlişki türü geçersiz.";
@@ -70,6 +82,7 @@ export async function POST(request: Request) {
     const input: CoupleInput = {
       partner1: { name: body.partner1.name.trim(), photoDatas: body.partner1.photoDatas },
       partner2: { name: body.partner2.name.trim(), photoDatas: body.partner2.photoDatas },
+      togetherPhotoDatas: body.togetherPhotoDatas ?? [],
       relationship: body.relationship,
       nickname1: body.nickname1,
       nickname2: body.nickname2,
