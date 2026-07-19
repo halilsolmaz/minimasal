@@ -19,23 +19,60 @@ export type Package = {
   perks: string[];
 };
 
-// ÇİFT ANI KİTABI paketi (2. ürün hattı, 2026-07-19): her anı = 1 tam sayfa
-// görsel + konuşma baloncuğu. Tek paketle başlanıyor; fiyat geçici.
+// ÇİFT ANI KİTABI kademeleri (2026-07-20, kurucu kararı): sayfa sayısı
+// malzemeye göre önerilir (anlatılan anılardan çıkan sahne sayısı analiz
+// edilir, en yakın kademe önerilen olarak işaretlenir). Her sayfa = 1 tam
+// sayfa görsel + yerinde konuşma baloncuğu. Fiyatlar geçici.
 export const COUPLE_PACKAGES: Package[] = [
   {
-    id: "cift-ani",
+    id: "cift-10",
     pages: 10,
-    scenes: 10, // en fazla anı sayfası (MAX_MEMORY_PAGES ile uyumlu)
-    price: 899,
-    label: "Anı Kitabı",
-    perks: [
-      "10 anı sayfasına kadar (tam sayfa görsel + baloncuklar)",
-      "İki kişilik karakter benzerliği",
-      "Dijital önizleme",
-      "Sert kapak baskı",
-    ],
+    scenes: 10,
+    price: 799,
+    label: "Anı Kitabı 10",
+    perks: ["10 anı sayfası", "İki kişilik benzerlik", "Dijital önizleme", "Sert kapak baskı"],
+  },
+  {
+    id: "cift-15",
+    pages: 15,
+    scenes: 15,
+    price: 949,
+    label: "Anı Kitabı 15",
+    perks: ["15 anı sayfası", "İki kişilik benzerlik", "Dijital önizleme", "Sert kapak baskı"],
+  },
+  {
+    id: "cift-20",
+    pages: 20,
+    scenes: 20,
+    price: 1099,
+    label: "Anı Kitabı 20",
+    perks: ["20 anı sayfası", "İki kişilik benzerlik", "Dijital önizleme", "Sert kapak baskı"],
+  },
+  {
+    id: "cift-25",
+    pages: 25,
+    scenes: 25,
+    price: 1249,
+    label: "Anı Kitabı 25",
+    perks: ["25 anı sayfası", "İki kişilik benzerlik", "Dijital önizleme", "Sert kapak baskı"],
+  },
+  {
+    id: "cift-30",
+    pages: 30,
+    scenes: 30,
+    price: 1399,
+    label: "Anı Kitabı 30",
+    perks: ["30 anı sayfası", "İki kişilik benzerlik", "Dijital önizleme", "Sert kapak + özel kutu"],
   },
 ];
+
+// Sahne sayısına göre önerilen çift paketi (en küçük yeterli kademe).
+export function recommendedCouplePackage(sceneCount: number): Package {
+  return (
+    COUPLE_PACKAGES.find((p) => p.pages >= sceneCount) ??
+    COUPLE_PACKAGES[COUPLE_PACKAGES.length - 1]
+  );
+}
 
 // Fiyatlar geçici — matbaa maliyeti netleşince güncellenecek.
 // Format kararı (2026-07-07): sayfa = çift sayfa düzeni; sahne başına

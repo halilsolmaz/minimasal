@@ -19,8 +19,9 @@ import {
   loadCoupleState,
   clearCoupleState,
   isCoupleComplete,
-  answeredCount,
+  filledMemories,
   COUPLE_PREVIEW_STORAGE_KEY,
+  COUPLE_ANALYSIS_STORAGE_KEY,
   RELATIONSHIPS,
   type CoupleWizardState,
 } from "@/lib/couple";
@@ -53,6 +54,8 @@ export default function CheckoutPage() {
   const [couple, setCouple] = useState<CoupleWizardState | null>(null);
   const [checked, setChecked] = useState(false);
   const [packageId, setPackageId] = useState("klasik");
+  // Malzeme analizinden gelen önerilen çift paketi (rozet + ön seçim).
+  const [recommendedId, setRecommendedId] = useState<string | null>(null);
   const [customer, setCustomer] = useState<CustomerForm>(emptyCustomer);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -62,7 +65,18 @@ export default function CheckoutPage() {
       new URLSearchParams(window.location.search).get("tur") === "cift";
     if (isCouple) {
       setMode("cift");
-      setPackageId(COUPLE_PACKAGES[0].id);
+      let rec: string | null = null;
+      try {
+        rec = JSON.parse(
+          sessionStorage.getItem(COUPLE_ANALYSIS_STORAGE_KEY) ?? "null"
+        )?.recommendedPackageId;
+      } catch {
+        // analiz kaydı bozuksa öneri olmadan devam
+      }
+      setRecommendedId(rec);
+      setPackageId(
+        COUPLE_PACKAGES.some((p) => p.id === rec) ? rec! : COUPLE_PACKAGES[0].id
+      );
       const saved = loadCoupleState();
       if (saved && isCoupleComplete(saved.data)) setCouple(saved.data);
     } else {
@@ -117,12 +131,19 @@ export default function CheckoutPage() {
                 photoDatas: couple!.partner2.photoUrls,
               },
               togetherPhotoDatas: couple!.togetherPhotoUrls,
+              pets: couple!.pets.map((p) => ({
+                name: p.name,
+                typeId: p.typeId,
+                owner: p.owner,
+                photoDatas: p.photoUrls,
+              })),
               relationship: couple!.relationship,
+              livingTogether: couple!.livingTogether,
               nickname1: couple!.nickname1,
               nickname2: couple!.nickname2,
-              answers: Object.entries(couple!.answers)
-                .filter(([, text]) => text.trim().length >= 20)
-                .map(([questionId, text]) => ({ questionId, text })),
+              tanisma: couple!.tanisma,
+              memories: filledMemories(couple!),
+              routines: couple!.routines,
             },
             teaserId,
             packageId,
@@ -223,12 +244,17 @@ export default function CheckoutPage() {
                 <button
                   key={p.id}
                   onClick={() => setPackageId(p.id)}
-                  className={`text-left rounded-2xl p-4 border-2 transition ${
+                  className={`relative text-left rounded-2xl p-4 border-2 transition ${
                     packageId === p.id
                       ? "border-primary bg-primary-soft"
                       : "border-ink/10 bg-white hover:border-primary/40"
                   }`}
                 >
+                  {mode === "cift" && p.id === recommendedId && (
+                    <span className="absolute -top-2.5 right-3 rounded-full bg-accent px-2.5 py-0.5 text-[10px] font-bold text-ink">
+                      ⭐ Önerilen
+                    </span>
+                  )}
                   <div className="font-display font-bold text-ink">
                     {p.label}
                   </div>
@@ -239,6 +265,12 @@ export default function CheckoutPage() {
                 </button>
               ))}
             </div>
+            {mode === "cift" && recommendedId && (
+              <p className="mt-3 text-xs text-ink-soft">
+                ⭐ Öneri, anlattığınız anılardan çıkan sahne sayısına göre
+                hesaplandı — dilediğiniz boyutu seçebilirsiniz.
+              </p>
+            )}
             <ul className="mt-4 space-y-1 text-sm text-ink-soft">
               {pkg.perks.map((perk) => (
                 <li key={perk}>✓ {perk}</li>
@@ -333,7 +365,7 @@ export default function CheckoutPage() {
                 <div className="text-sm text-ink-soft">
                   💞{" "}
                   {RELATIONSHIPS.find((r) => r.id === couple.relationship)?.label}{" "}
-                  · {answeredCount(couple)} anı
+                  · tanışma + {filledMemories(couple).length} anı
                 </div>
               </div>
             </div>

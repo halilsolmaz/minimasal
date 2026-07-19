@@ -7,10 +7,13 @@ import { PACKAGES, COUPLE_PACKAGES } from "./brand";
 import { getTheme } from "./themes";
 import {
   RELATIONSHIPS,
-  COUPLE_QUESTIONS,
+  PET_TYPES,
   MAX_PARTNER_PHOTOS,
   MAX_TOGETHER_PHOTOS,
-  MIN_ANSWERED_MEMORIES,
+  MAX_PETS,
+  MAX_PET_PHOTOS,
+  MIN_TANISMA_CHARS,
+  MIN_MEMORY_CHARS,
 } from "./couple";
 import {
   getRelation,
@@ -57,14 +60,25 @@ export type OrderCompanion = {
 };
 
 // Çift anı kitabı sipariş verisi (product = "cift").
+// 2026-07-20: soru listesi modeli yerine serbest malzeme modeli
+// (tanışma + anılar + rutinler); evcil dostlar ve yaşam durumu eklendi.
 export type CoupleOrderData = {
   partner1: { name: string; photoDatas: string[] };
   partner2: { name: string; photoDatas: string[] };
   togetherPhotoDatas?: string[]; // birlikte fotoğraflar (0-2)
+  pets?: {
+    name: string;
+    typeId: string;
+    owner: "1" | "2" | "ortak";
+    photoDatas: string[]; // 0-1
+  }[];
   relationship: string;
+  livingTogether?: string | null;
   nickname1?: string;
   nickname2?: string;
-  answers: { questionId: string; text: string }[];
+  tanisma: string; // tanışma hikayesi
+  memories: string[]; // önemli anılar (her biri ayrı blok)
+  routines?: string; // rutinler
 };
 
 export type NewOrderInput = {
@@ -161,6 +175,25 @@ function validateCouple(couple: CoupleOrderData | undefined): string {
       throw new OrderValidationError("Birlikte fotoğraflar geçersiz.");
     }
   }
+  if (couple.pets) {
+    if (!Array.isArray(couple.pets) || couple.pets.length > MAX_PETS) {
+      throw new OrderValidationError(`En fazla ${MAX_PETS} evcil dost eklenebilir.`);
+    }
+    for (const pet of couple.pets) {
+      if (
+        typeof pet.name !== "string" ||
+        pet.name.trim().length < 1 ||
+        pet.name.length > 30 ||
+        !PET_TYPES.some((t) => t.id === pet.typeId) ||
+        !["1", "2", "ortak"].includes(pet.owner) ||
+        !Array.isArray(pet.photoDatas) ||
+        pet.photoDatas.length > MAX_PET_PHOTOS ||
+        pet.photoDatas.some(badPhoto)
+      ) {
+        throw new OrderValidationError("Evcil dost bilgisi geçersiz.");
+      }
+    }
+  }
   if (!RELATIONSHIPS.some((r) => r.id === couple.relationship)) {
     throw new OrderValidationError("İlişki türü geçersiz.");
   }
@@ -170,19 +203,30 @@ function validateCouple(couple: CoupleOrderData | undefined): string {
   ) {
     throw new OrderValidationError("Hitaplar çok uzun.");
   }
-  if (!Array.isArray(couple.answers)) {
-    throw new OrderValidationError("Anılar eksik.");
+  const MAX_TEXT = 8000;
+  if (
+    typeof couple.tanisma !== "string" ||
+    couple.tanisma.trim().length < MIN_TANISMA_CHARS ||
+    couple.tanisma.length > MAX_TEXT
+  ) {
+    throw new OrderValidationError("Tanışma hikayesi eksik veya çok uzun.");
   }
-  const valid = couple.answers.filter(
-    (a) =>
-      COUPLE_QUESTIONS.some((q) => q.id === a.questionId) &&
-      typeof a.text === "string" &&
-      a.text.trim().length >= 20 &&
-      a.text.length <= 2000
-  );
-  if (valid.length < MIN_ANSWERED_MEMORIES) {
+  if (
+    !Array.isArray(couple.memories) ||
+    couple.memories.some((m) => typeof m !== "string" || m.length > MAX_TEXT)
+  ) {
+    throw new OrderValidationError("Anılar geçersiz.");
+  }
+  if (couple.routines && (typeof couple.routines !== "string" || couple.routines.length > MAX_TEXT)) {
+    throw new OrderValidationError("Rutinler çok uzun.");
+  }
+  const memoryCount = couple.memories.filter(
+    (m) => m.trim().length >= MIN_MEMORY_CHARS
+  ).length;
+  const hasRoutines = (couple.routines ?? "").trim().length >= MIN_MEMORY_CHARS;
+  if (memoryCount < 1 && !hasRoutines) {
     throw new OrderValidationError(
-      `En az ${MIN_ANSWERED_MEMORIES} anı yazılmalı.`
+      "Tanışmanın yanına en az bir anı ya da rutinlerinizi ekleyin."
     );
   }
   return `${couple.partner1.name.trim()} & ${couple.partner2.name.trim()}`;

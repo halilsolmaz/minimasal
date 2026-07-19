@@ -1,6 +1,7 @@
-// Çift anı kitabı — ücretsiz önizleme: kapak + ilk anı sayfası (baloncuklu).
-// Çocuk teaser'ıyla aynı ekonomi: ham halleri saklanır, sipariş gelirse
-// tam kitapta AYNEN kullanılır. Limitler ortak (teasers tablosu).
+// Çift anı kitabı — ücretsiz önizleme: kapak + ilk anı sayfası.
+// İlk sahne TANIŞMA hikayesinden çıkarılır (baloncuk varsa basılır).
+// Ham haller saklanır; sipariş gelirse tam kitapta AYNEN kullanılır.
+// Limitler ortak (teasers tablosu).
 
 import { toWatermarkedPreview } from "@/lib/ai/watermark";
 import { overlayBubbles } from "@/lib/ai/bubbles";
@@ -11,16 +12,30 @@ import {
   sceneBubbles,
   coupleTitle,
   type CoupleInput,
+  type CouplePetInput,
 } from "@/lib/ai/couple";
 import { checkTeaserLimits, saveTeaser } from "@/lib/teasers";
 import {
   RELATIONSHIPS,
+  PET_TYPES,
   MAX_PARTNER_PHOTOS,
   MAX_TOGETHER_PHOTOS,
+  MAX_PETS,
+  MAX_PET_PHOTOS,
+  MIN_TANISMA_CHARS,
+  type LivingId,
 } from "@/lib/couple";
 
-type CouplePreviewRequest = CoupleInput & {
-  tanisma: string; // ilk anının (tanışma) cevabı — önizleme sayfası bundan
+type CouplePreviewRequest = {
+  partner1: { name: string; photoDatas: string[] };
+  partner2: { name: string; photoDatas: string[] };
+  togetherPhotoDatas?: string[];
+  pets?: CouplePetInput[];
+  relationship: string;
+  livingTogether?: LivingId | null;
+  nickname1?: string;
+  nickname2?: string;
+  tanisma: string; // önizleme sahnesi bundan çıkarılır
 };
 
 const MAX_PHOTO_DATA_CHARS = 2_000_000;
@@ -50,9 +65,30 @@ function validationError(body: CouplePreviewRequest): string | null {
     )
       return "Birlikte fotoğraflar geçersiz.";
   }
+  if (body.pets) {
+    if (!Array.isArray(body.pets) || body.pets.length > MAX_PETS)
+      return `En fazla ${MAX_PETS} evcil dost eklenebilir.`;
+    for (const pet of body.pets) {
+      if (typeof pet.name !== "string" || pet.name.trim().length < 1 || pet.name.length > 30)
+        return "Evcil dost ismi geçersiz.";
+      if (!PET_TYPES.some((t) => t.id === pet.typeId))
+        return "Evcil dost türü geçersiz.";
+      if (!["1", "2", "ortak"].includes(pet.owner))
+        return "Evcil dostun sahibi geçersiz.";
+      if (
+        !Array.isArray(pet.photoDatas) ||
+        pet.photoDatas.length > MAX_PET_PHOTOS ||
+        pet.photoDatas.some(badPhoto)
+      )
+        return "Evcil dost fotoğrafı geçersiz.";
+    }
+  }
   if (!RELATIONSHIPS.some((r) => r.id === body.relationship))
     return "İlişki türü geçersiz.";
-  if (typeof body.tanisma !== "string" || body.tanisma.trim().length < 20)
+  if (
+    typeof body.tanisma !== "string" ||
+    body.tanisma.trim().length < MIN_TANISMA_CHARS
+  )
     return "Tanışma hikayenizi biraz daha detaylı yazın (en az birkaç cümle).";
   if (
     (body.nickname1 && body.nickname1.length > 30) ||
@@ -83,15 +119,20 @@ export async function POST(request: Request) {
       partner1: { name: body.partner1.name.trim(), photoDatas: body.partner1.photoDatas },
       partner2: { name: body.partner2.name.trim(), photoDatas: body.partner2.photoDatas },
       togetherPhotoDatas: body.togetherPhotoDatas ?? [],
-      relationship: body.relationship,
+      pets: body.pets ?? [],
+      relationship: body.relationship as CoupleInput["relationship"],
+      livingTogether: body.livingTogether ?? null,
       nickname1: body.nickname1,
       nickname2: body.nickname2,
     };
     const title = coupleTitle(input);
 
-    const [scene] = await writeCoupleScenes(input, [
-      { questionId: "tanisma", answer: body.tanisma.trim() },
-    ]);
+    // Tanışma hikayesinden EN GÜZEL tek sahneyi çıkar (önizleme sayfası).
+    const [scene] = await writeCoupleScenes(
+      input,
+      { tanisma: body.tanisma.trim(), memories: [], routines: "" },
+      1
+    );
 
     const cover = await generateCoupleCover(input);
     const pageRaw = await generateCoupleScene(input, scene);
@@ -111,6 +152,8 @@ export async function POST(request: Request) {
       title,
       provider: process.env.AI_PROVIDER === "mock" || !process.env.FAL_KEY ? "mock" : "fal",
       imageData,
+      // Sahnenin tamamı (source/title/brief/bubbles) JSON olarak saklanır;
+      // bookRun sipariş üretiminde bunu aynen 1. sahne yapar.
       scene1: { pageText: JSON.stringify(scene), imageBrief: scene.sceneBrief },
       coverRaw: `data:image/jpeg;base64,${cover.toString("base64")}`,
       page1Raw: `data:image/jpeg;base64,${pageBubbled.toString("base64")}`,
@@ -121,6 +164,7 @@ export async function POST(request: Request) {
       title,
       imageData,
       page1Image,
+      page1Title: scene.title,
       page1Bubbles: sceneBubbles(scene).map((b) => b.text),
     });
   } catch (err) {

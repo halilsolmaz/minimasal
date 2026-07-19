@@ -12,7 +12,7 @@ import {
 import { PACKAGES } from "@/lib/brand";
 import { getTheme } from "@/lib/themes";
 import { getRelation } from "@/lib/characters";
-import { COUPLE_QUESTIONS } from "@/lib/couple";
+import { PET_TYPES, LIVING_OPTIONS } from "@/lib/couple";
 import { setStatusAction } from "../actions";
 
 export const metadata = { robots: { index: false, follow: false } };
@@ -79,6 +79,27 @@ export default async function AdminOrderPage({
                   <Row label="Çift" value={order.childName} />
                   <Row label="İlişki" value={order.couple.relationship} />
                   <Row
+                    label="Yaşam"
+                    value={
+                      LIVING_OPTIONS.find(
+                        (l) => l.id === order.couple!.livingTogether
+                      )?.label ?? "—"
+                    }
+                  />
+                  <Row
+                    label="Evcil dostlar"
+                    value={
+                      order.couple.pets?.length
+                        ? order.couple.pets
+                            .map((p) => {
+                              const t = PET_TYPES.find((x) => x.id === p.typeId);
+                              return `${t?.emoji ?? "🐾"} ${p.name}`;
+                            })
+                            .join(", ")
+                        : "—"
+                    }
+                  />
+                  <Row
                     label={`${order.couple.partner1.name}'e hitap`}
                     value={order.couple.nickname1 || "—"}
                   />
@@ -87,19 +108,34 @@ export default async function AdminOrderPage({
                     value={order.couple.nickname2 || "—"}
                   />
                 </dl>
-                <h3 className="mt-4 font-bold text-ink text-sm">
-                  Anılar ({order.couple.answers.length})
-                </h3>
+                <h3 className="mt-4 font-bold text-ink text-sm">Malzeme</h3>
                 <ul className="mt-2 space-y-2 text-sm">
-                  {order.couple.answers.map((a) => (
-                    <li key={a.questionId} className="rounded-xl bg-cream-deep p-3">
+                  <li className="rounded-xl bg-cream-deep p-3">
+                    <div className="font-bold text-ink-soft text-xs uppercase">
+                      Tanışma hikayesi
+                    </div>
+                    <p className="mt-1 text-ink whitespace-pre-wrap">
+                      {order.couple.tanisma}
+                    </p>
+                  </li>
+                  {order.couple.memories.map((m, i) => (
+                    <li key={i} className="rounded-xl bg-cream-deep p-3">
                       <div className="font-bold text-ink-soft text-xs uppercase">
-                        {COUPLE_QUESTIONS.find((q) => q.id === a.questionId)
-                          ?.title ?? a.questionId}
+                        Anı {i + 1}
                       </div>
-                      <p className="mt-1 text-ink">{a.text}</p>
+                      <p className="mt-1 text-ink whitespace-pre-wrap">{m}</p>
                     </li>
                   ))}
+                  {(order.couple.routines ?? "").trim() && (
+                    <li className="rounded-xl bg-cream-deep p-3">
+                      <div className="font-bold text-ink-soft text-xs uppercase">
+                        Rutinler
+                      </div>
+                      <p className="mt-1 text-ink whitespace-pre-wrap">
+                        {order.couple.routines}
+                      </p>
+                    </li>
+                  )}
                 </ul>
               </>
             ) : (
@@ -194,6 +230,31 @@ export default async function AdminOrderPage({
                         className="h-20 w-20 rounded-xl object-cover"
                       />
                     ))}
+                  </div>
+                </div>
+              )}
+              {(order.couple.pets?.length ?? 0) > 0 && (
+                <div className="mt-3">
+                  <div className="text-sm font-bold text-ink">Evcil dostlar</div>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {order.couple.pets!.map((p, i) =>
+                      p.photoDatas[0] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={i}
+                          src={p.photoDatas[0]}
+                          alt={p.name}
+                          className="h-20 w-20 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <span
+                          key={i}
+                          className="h-20 w-20 rounded-xl bg-cream-deep flex items-center justify-center text-2xl"
+                        >
+                          {PET_TYPES.find((t) => t.id === p.typeId)?.emoji ?? "🐾"}
+                        </span>
+                      )
+                    )}
                   </div>
                 </div>
               )}

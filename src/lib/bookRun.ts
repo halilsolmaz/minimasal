@@ -9,7 +9,7 @@ import path from "path";
 import os from "os";
 import { getOrder, type Order } from "./orders";
 import { getTeaser } from "./teasers";
-import { PACKAGES } from "./brand";
+import { PACKAGES, COUPLE_PACKAGES } from "./brand";
 import { generateImage, writeStory } from "./ai";
 import {
   writeCoupleScenes,
@@ -21,7 +21,7 @@ import {
   type MemoryScene,
 } from "./ai/couple";
 import { overlayBubbles } from "./ai/bubbles";
-import { MAX_MEMORY_PAGES, type RelationshipId } from "./couple";
+import type { LivingId, RelationshipId } from "./couple";
 
 function dataUrlToBuffer(dataUrl: string): Buffer {
   return Buffer.from(dataUrl.split(",")[1], "base64");
@@ -175,20 +175,25 @@ async function runCoupleBook(
       partner1: c.partner1,
       partner2: c.partner2,
       togetherPhotoDatas: c.togetherPhotoDatas ?? [],
+      pets: c.pets ?? [],
       relationship: c.relationship as RelationshipId,
+      livingTogether: (c.livingTogether ?? null) as LivingId | null,
       nickname1: c.nickname1,
       nickname2: c.nickname2,
     };
     const title = coupleTitle(input);
-    log(dir, `Üretim başladı — ${title} (çift anı kitabı)`);
+    // Hedef sayfa sayısı seçilen kademeden (10/15/20/25/30).
+    const targetCount =
+      COUPLE_PACKAGES.find((p) => p.id === order.packageId)?.scenes ?? 10;
+    log(dir, `Üretim başladı — ${title} (çift anı kitabı, ${targetCount} sayfa)`);
 
-    // Anıları sıraya koy (en fazla MAX_MEMORY_PAGES sayfa).
-    const memories = c.answers
-      .filter((a) => a.text.trim().length >= 20)
-      .slice(0, MAX_MEMORY_PAGES)
-      .map((a) => ({ questionId: a.questionId, answer: a.text.trim() }));
+    const material = {
+      tanisma: c.tanisma,
+      memories: c.memories.filter((m) => m.trim().length >= 20),
+      routines: c.routines ?? "",
+    };
 
-    // Önizleme varsa: kapak + ilk anı sayfası oradan (scene JSON'u
+    // Önizleme varsa: kapak + ilk anı sayfası oradan (sahne JSON'u
     // teaser.scene1.pageText içinde saklanıyor — bkz. cift-onizleme).
     const teaser = order.teaserId ? getTeaser(order.teaserId) : null;
     let fixedFirst: MemoryScene | undefined;
@@ -200,16 +205,9 @@ async function runCoupleBook(
         fixedFirst = undefined;
       }
     }
-    // Önizlemedeki ilk anı her zaman "tanışma" — sıradaki listede başa al.
-    if (fixedFirst) {
-      const rest = memories.filter((m) => m.questionId !== fixedFirst!.questionId);
-      const first = memories.find((m) => m.questionId === fixedFirst!.questionId);
-      if (first) memories.splice(0, memories.length, first, ...rest);
-      else fixedFirst = undefined; // tanışma cevabı değişmiş/yok — baştan üret
-    }
 
-    log(dir, `${memories.length} anı sahneye çevriliyor...`);
-    const scenes = await writeCoupleScenes(input, memories, fixedFirst);
+    log(dir, `Malzeme ${targetCount} sahneye bölünüyor...`);
+    const scenes = await writeCoupleScenes(input, material, targetCount, fixedFirst);
     fs.writeFileSync(
       path.join(dir, "sahneler.json"),
       JSON.stringify({ title, scenes }, null, 2),
