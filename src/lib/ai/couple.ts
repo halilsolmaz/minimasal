@@ -52,6 +52,8 @@ export type CoupleInput = {
   fixedDetails?: string; // araba/ev gibi değişmeyen detaylar
   nickname1?: string;
   nickname2?: string;
+  looks1?: string; // ayırt edici özellikler (dövme+yer, gözlük, sakal…)
+  looks2?: string;
 };
 
 export type CoupleMaterial = {
@@ -238,11 +240,21 @@ function coupleContext(input: CoupleInput): string {
   const fixed = input.fixedDetails?.trim()
     ? ` Değişmeyen detaylar (her sahnede aynı görünmeli): ${input.fixedDetails.trim()}.`
     : "";
+  // Ayırt edici özellikler: dövme gibi bir detay ancak o vücut bölgesinin
+  // göründüğü sahnede resmedilir; brief'e uygun düştüğü yerde yaz.
+  const looksArr = [
+    input.looks1?.trim() ? `${input.partner1.name}: ${input.looks1.trim()}` : "",
+    input.looks2?.trim() ? `${input.partner2.name}: ${input.looks2.trim()}` : "",
+  ].filter(Boolean);
+  const looks = looksArr.length
+    ? ` Kişisel görünüm notları (kalıcı iz mi aksesuar mı ayrımı için görünüm/dağılım kuralına uy): ${looksArr.join("; ")}.`
+    : "";
   return (
     `Çift: ${input.partner1.name} (1. kişi) ve ${input.partner2.name} (2. kişi), ${input.relationship}. ` +
     `Şehir: ${input.city?.trim() || "Türkiye"}.${ages} ${living} ${nick}` +
     (pets ? ` Evcil dostları: ${pets}.` : "") +
-    fixed
+    fixed +
+    looks
   );
 }
 

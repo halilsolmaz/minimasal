@@ -39,6 +39,8 @@ type CouplePreviewRequest = {
   fixedDetails?: string;
   nickname1?: string;
   nickname2?: string;
+  looks1?: string;
+  looks2?: string;
   tanisma: string; // önizleme sahnesi bundan çıkarılır
 };
 
@@ -99,6 +101,11 @@ function validationError(body: CouplePreviewRequest): string | null {
     (body.nickname2 && body.nickname2.length > 30)
   )
     return "Hitaplar çok uzun.";
+  if (
+    (body.looks1 && body.looks1.length > 300) ||
+    (body.looks2 && body.looks2.length > 300)
+  )
+    return "Ayırt edici özellikler çok uzun.";
   return null;
 }
 
@@ -132,6 +139,8 @@ export async function POST(request: Request) {
       fixedDetails: body.fixedDetails,
       nickname1: body.nickname1,
       nickname2: body.nickname2,
+      looks1: body.looks1,
+      looks2: body.looks2,
     };
     const title = coupleTitle(input);
 

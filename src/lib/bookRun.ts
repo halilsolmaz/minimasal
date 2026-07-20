@@ -209,6 +209,8 @@ async function runCoupleBook(
       fixedDetails: c.fixedDetails,
       nickname1: c.nickname1,
       nickname2: c.nickname2,
+      looks1: c.looks1,
+      looks2: c.looks2,
     };
     const title = coupleTitle(input);
     const tierPages =

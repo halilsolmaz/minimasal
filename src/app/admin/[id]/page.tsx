@@ -120,6 +120,14 @@ export default async function AdminOrderPage({
                     label={`${order.couple.partner2.name}'e hitap`}
                     value={order.couple.nickname2 || "—"}
                   />
+                  <Row
+                    label={`${order.couple.partner1.name} — özellikler`}
+                    value={order.couple.looks1 || "—"}
+                  />
+                  <Row
+                    label={`${order.couple.partner2.name} — özellikler`}
+                    value={order.couple.looks2 || "—"}
+                  />
                 </dl>
                 <h3 className="mt-4 font-bold text-ink text-sm">Malzeme</h3>
                 <ul className="mt-2 space-y-2 text-sm">

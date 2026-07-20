@@ -23,6 +23,8 @@ type AnalyzeRequest = {
   fixedDetails?: string;
   nickname1?: string;
   nickname2?: string;
+  looks1?: string;
+  looks2?: string;
   pets?: { name: string; typeId: string; owner: "1" | "2" | "ortak" }[];
   tanisma: string;
   memories: string[];
@@ -75,6 +77,8 @@ export async function POST(request: Request) {
       fixedDetails: body.fixedDetails,
       nickname1: body.nickname1,
       nickname2: body.nickname2,
+      looks1: body.looks1,
+      looks2: body.looks2,
       pets: (body.pets ?? []).map((p) => ({ ...p, photoDatas: [] })),
     };
     const result = await analyzeCoupleMaterial(input, {

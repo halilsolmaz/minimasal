@@ -145,6 +145,8 @@ export default function CheckoutPage() {
               fixedDetails: couple!.fixedDetails,
               nickname1: couple!.nickname1,
               nickname2: couple!.nickname2,
+              looks1: couple!.looks1,
+              looks2: couple!.looks2,
               tanisma: couple!.tanisma,
               memories: filledMemories(couple!),
               routines: couple!.routines,

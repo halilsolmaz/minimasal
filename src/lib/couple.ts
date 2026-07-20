@@ -117,6 +117,12 @@ export type CoupleWizardState = {
   pets: CouplePet[]; // evcil dostlar (0-2)
   nickname1: string; // partner1'e seslenilen (ör. "Aşkım")
   nickname2: string;
+  // Ayırt edici özellikler (opsiyonel, serbest metin): dövme+yeri, gözlük,
+  // sakal, farklı saç rengi/modeli, piercing… Fotoğrafta görünmeyen ama
+  // kişiye ait detaylar. Metin LLM'i fotoğrafı görmediği için bunlar
+  // sceneBrief'e ve görsel referans tarifine buradan taşınır.
+  looks1: string;
+  looks2: string;
   tanisma: string; // tanışma hikayesi (uzun anlatım)
   memories: string[]; // önemli anılar — her eleman ayrı bir anı bloğu
   routines: string; // rutinler (madde madde tek alan)
@@ -142,6 +148,8 @@ export const initialCoupleState: CoupleWizardState = {
   pets: [],
   nickname1: "",
   nickname2: "",
+  looks1: "",
+  looks2: "",
   tanisma: "",
   memories: [""],
   routines: "",

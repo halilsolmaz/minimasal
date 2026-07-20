@@ -80,6 +80,8 @@ export type CoupleOrderData = {
   fixedDetails?: string; // araba/ev gibi değişmeyen detaylar
   nickname1?: string;
   nickname2?: string;
+  looks1?: string; // ayırt edici özellikler (dövme+yer, gözlük, sakal…)
+  looks2?: string;
   tanisma: string; // tanışma hikayesi
   memories: string[]; // önemli anılar (her biri ayrı blok)
   routines?: string; // rutinler
@@ -211,6 +213,12 @@ function validateCouple(couple: CoupleOrderData | undefined): string {
     (couple.nickname2 && couple.nickname2.length > 30)
   ) {
     throw new OrderValidationError("Hitaplar çok uzun.");
+  }
+  if (
+    (couple.looks1 && couple.looks1.length > 300) ||
+    (couple.looks2 && couple.looks2.length > 300)
+  ) {
+    throw new OrderValidationError("Ayırt edici özellikler çok uzun.");
   }
   const MAX_TEXT = 8000;
   if (

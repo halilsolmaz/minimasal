@@ -141,6 +141,8 @@ export default function CoupleWizardPage() {
           fixedDetails: data.fixedDetails,
           nickname1: data.nickname1,
           nickname2: data.nickname2,
+          looks1: data.looks1,
+          looks2: data.looks2,
           pets: data.pets.map((p) => ({
             name: p.name,
             typeId: p.typeId,
@@ -204,6 +206,8 @@ export default function CoupleWizardPage() {
           fixedDetails: data.fixedDetails,
           nickname1: data.nickname1,
           nickname2: data.nickname2,
+          looks1: data.looks1,
+          looks2: data.looks2,
           tanisma: data.tanisma,
         }),
       });
@@ -462,6 +466,42 @@ export default function CoupleWizardPage() {
                   Araba, ev gibi tekrar eden şeyler her sayfada AYNI görünsün diye.
                 </span>
               </label>
+
+              <div className="mt-6 grid sm:grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    {data.partner1.name || "1. kişi"} — ayırt edici özellikler{" "}
+                    <span className="font-normal text-ink-soft">(ops.)</span>
+                  </span>
+                  <textarea
+                    value={data.looks1}
+                    onChange={(e) => update({ looks1: e.target.value })}
+                    placeholder="Örn. Sol kolda gül dövmesi, gözlük, kısa sakal."
+                    rows={2}
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                </label>
+                <label className="block">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    {data.partner2.name || "2. kişi"} — ayırt edici özellikler{" "}
+                    <span className="font-normal text-ink-soft">(ops.)</span>
+                  </span>
+                  <textarea
+                    value={data.looks2}
+                    onChange={(e) => update({ looks2: e.target.value })}
+                    placeholder="Örn. Bilekte ay-yıldız dövmesi, dağınık kıvırcık saç."
+                    rows={2}
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                </label>
+              </div>
+              <span className="mt-2 block text-xs text-ink-soft">
+                Fotoğrafta görünmeyen ama size ait detaylar. Dövme/yara izi gibi kalıcı
+                şeyler için <b>nerede</b> olduğunu yazın (kolda, bilekte…) — o bölge göründüğü
+                her sahnede çizilir. Gözlük/kolye gibi takıp çıkardıklarınız ise her sayfada
+                değil, sahnelere doğal dağılır. Boy/kilo/göz rengi gerekmez, onları
+                fotoğraflardan çıkarıyoruz.
+              </span>
             </StepShell>
           )}
 
