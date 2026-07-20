@@ -74,11 +74,20 @@ export type CoupleOrderData = {
   }[];
   relationship: string;
   livingTogether?: string | null;
+  city?: string; // yaşadıkları şehir (coğrafya)
+  age1?: string;
+  age2?: string;
+  fixedDetails?: string; // araba/ev gibi değişmeyen detaylar
   nickname1?: string;
   nickname2?: string;
   tanisma: string; // tanışma hikayesi
   memories: string[]; // önemli anılar (her biri ayrı blok)
   routines?: string; // rutinler
+  dream?: {
+    years: number | null;
+    place: string;
+    description: string;
+  } | null; // ortak gelecek hayali (opsiyonel bölüm)
 };
 
 export type NewOrderInput = {
@@ -228,6 +237,39 @@ function validateCouple(couple: CoupleOrderData | undefined): string {
     throw new OrderValidationError(
       "Tanışmanın yanına en az bir anı ya da rutinlerinizi ekleyin."
     );
+  }
+  if (typeof couple.city !== "string" || couple.city.trim().length < 2 || couple.city.length > 60) {
+    throw new OrderValidationError("Yaşadığınız şehri yazın.");
+  }
+  for (const a of [couple.age1, couple.age2]) {
+    if (a && (typeof a !== "string" || a.length > 3)) {
+      throw new OrderValidationError("Yaş bilgisi geçersiz.");
+    }
+  }
+  if (couple.fixedDetails && couple.fixedDetails.length > 1000) {
+    throw new OrderValidationError("Değişmeyen detaylar çok uzun.");
+  }
+  if (couple.dream) {
+    const d = couple.dream;
+    const started =
+      d.years !== null || (d.place ?? "").trim() || (d.description ?? "").trim();
+    if (started) {
+      if (
+        typeof d.years !== "number" ||
+        d.years < 1 ||
+        d.years > 80 ||
+        typeof d.place !== "string" ||
+        d.place.trim().length < 2 ||
+        d.place.length > 120 ||
+        typeof d.description !== "string" ||
+        d.description.trim().length < MIN_MEMORY_CHARS ||
+        d.description.length > 8000
+      ) {
+        throw new OrderValidationError(
+          "Hayal bölümünü tamamlayın (kaç yıl sonra, nerede ve anlatım)."
+        );
+      }
+    }
   }
   return `${couple.partner1.name.trim()} & ${couple.partner2.name.trim()}`;
 }

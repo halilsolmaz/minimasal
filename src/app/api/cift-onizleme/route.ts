@@ -6,7 +6,7 @@
 import { toWatermarkedPreview } from "@/lib/ai/watermark";
 import { overlayBubbles } from "@/lib/ai/bubbles";
 import {
-  writeCoupleScenes,
+  writeCouplePlan,
   generateCoupleCover,
   generateCoupleScene,
   sceneBubbles,
@@ -33,6 +33,10 @@ type CouplePreviewRequest = {
   pets?: CouplePetInput[];
   relationship: string;
   livingTogether?: LivingId | null;
+  city?: string;
+  age1?: string;
+  age2?: string;
+  fixedDetails?: string;
   nickname1?: string;
   nickname2?: string;
   tanisma: string; // önizleme sahnesi bundan çıkarılır
@@ -122,17 +126,23 @@ export async function POST(request: Request) {
       pets: body.pets ?? [],
       relationship: body.relationship as CoupleInput["relationship"],
       livingTogether: body.livingTogether ?? null,
+      city: body.city,
+      age1: body.age1,
+      age2: body.age2,
+      fixedDetails: body.fixedDetails,
       nickname1: body.nickname1,
       nickname2: body.nickname2,
     };
     const title = coupleTitle(input);
 
     // Tanışma hikayesinden EN GÜZEL tek sahneyi çıkar (önizleme sayfası).
-    const [scene] = await writeCoupleScenes(
+    const previewPlan = await writeCouplePlan(
       input,
       { tanisma: body.tanisma.trim(), memories: [], routines: "" },
       1
     );
+    const scene = previewPlan.sections[0]?.scenes[0];
+    if (!scene) throw new Error("Önizleme sahnesi üretilemedi.");
 
     const cover = await generateCoupleCover(input);
     const pageRaw = await generateCoupleScene(input, scene);

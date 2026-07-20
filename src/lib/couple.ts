@@ -27,9 +27,12 @@ export const LIVING_OPTIONS: { id: LivingId; label: string; emoji: string }[] = 
   { id: "ayri", label: "Ayrı yaşıyoruz", emoji: "🏘️" },
 ];
 
-export const MAX_PARTNER_PHOTOS = 3; // kişi başı referans fotoğraf
-// Birlikte çekilmiş fotoğraflar: iki yüz aynı karede + boy farkı/duruş.
-export const MAX_TOGETHER_PHOTOS = 2;
+// Referans fotoğraf bütçesi (2026-07-21, kurucu geri bildirimi):
+// model sınırı 14; benzerlik için bütçenin çoğunu BİRLİKTE fotoğraflara
+// harcıyoruz (iki yüz + boy farkı + duruş aynı karede öğreniliyor).
+// Dağılım: 2+2 kişisel + 6 birlikte + 2 evcil = 12 (2 yedek).
+export const MAX_PARTNER_PHOTOS = 2; // kişi başı
+export const MAX_TOGETHER_PHOTOS = 6; // birlikte (en az 3 önerilir)
 
 // Evcil dostlar (2026-07-20, kurucu örneğindeki Bihter & İrmik):
 // rutin sahnelerinin doğal karakterleri. Referans bütçesi için sınırlı.
@@ -56,6 +59,30 @@ export type CouplePet = {
 export const MIN_MEMORY_CHARS = 30;
 export const MIN_TANISMA_CHARS = 50;
 
+// "Hayaliniz" bölümü (2026-07-21, kurucu kararı): İKİSİNİN ortak geleceği.
+// Bölüm opsiyonel; doldurulursa üç alan da zorunlu.
+export type CoupleDream = {
+  years: number | null; // kaç yıl sonra (serbest sayı, 1-80)
+  place: string; // nerede
+  description: string; // betimleyici anlatım
+};
+
+export const emptyDream: CoupleDream = { years: null, place: "", description: "" };
+
+export function dreamStarted(d: CoupleDream): boolean {
+  return d.years !== null || d.place.trim().length > 0 || d.description.trim().length > 0;
+}
+
+export function dreamComplete(d: CoupleDream): boolean {
+  return (
+    d.years !== null &&
+    d.years >= 1 &&
+    d.years <= 80 &&
+    d.place.trim().length >= 2 &&
+    d.description.trim().length >= MIN_MEMORY_CHARS
+  );
+}
+
 // Bölüm başlıkları + kullanıcıya gösterilen ipuçları (soru "seti" artık bu).
 export const SECTION_HINTS = {
   tanisma:
@@ -78,15 +105,22 @@ export type Partner = { name: string; photoUrls: string[] };
 export type CoupleWizardState = {
   partner1: Partner; // baloncuklarda "1. kişi"
   partner2: Partner;
-  togetherPhotoUrls: string[]; // birlikte fotoğraflar (0-2)
+  togetherPhotoUrls: string[]; // birlikte fotoğraflar
   relationship: RelationshipId | null;
   livingTogether: LivingId | null; // birlikte mi ayrı mı yaşıyorlar
+  city: string; // yaşadıkları şehir (görsellerin coğrafyası — zorunlu)
+  age1: string; // yaşlar (opsiyonel; string: input kolaylığı)
+  age2: string;
+  // Değişmeyen detaylar: araba marka/model/renk, evin özellikleri vb.
+  // Her sahne istemine sabit blok olarak gider (tutarlılık için).
+  fixedDetails: string;
   pets: CouplePet[]; // evcil dostlar (0-2)
   nickname1: string; // partner1'e seslenilen (ör. "Aşkım")
   nickname2: string;
   tanisma: string; // tanışma hikayesi (uzun anlatım)
   memories: string[]; // önemli anılar — her eleman ayrı bir anı bloğu
   routines: string; // rutinler (madde madde tek alan)
+  dream: CoupleDream; // ortak gelecek hayali (opsiyonel bölüm)
 };
 
 export const COUPLE_STORAGE_KEY = "minimasal-cift";
@@ -101,12 +135,17 @@ export const initialCoupleState: CoupleWizardState = {
   togetherPhotoUrls: [],
   relationship: null,
   livingTogether: null,
+  city: "",
+  age1: "",
+  age2: "",
+  fixedDetails: "",
   pets: [],
   nickname1: "",
   nickname2: "",
   tanisma: "",
   memories: [""],
   routines: "",
+  dream: emptyDream,
 };
 
 export function loadCoupleState(): { step: number; data: CoupleWizardState } | null {
@@ -150,7 +189,8 @@ export function filledMemories(data: CoupleWizardState): string[] {
     .filter((m) => m.length >= MIN_MEMORY_CHARS);
 }
 
-// Sipariş için asgari malzeme: tanışma + (en az 1 anı VEYA rutinler).
+// Sipariş için asgari malzeme: tanışma + şehir + (en az 1 anı VEYA rutinler).
+// Hayal bölümü yarım doldurulmuşsa da tamamlanması istenir.
 export function isCoupleComplete(data: CoupleWizardState): boolean {
   return (
     data.partner1.name.trim().length >= 2 &&
@@ -158,8 +198,10 @@ export function isCoupleComplete(data: CoupleWizardState): boolean {
     data.partner1.photoUrls.length >= 1 &&
     data.partner2.photoUrls.length >= 1 &&
     !!data.relationship &&
+    data.city.trim().length >= 2 &&
     data.tanisma.trim().length >= MIN_TANISMA_CHARS &&
     (filledMemories(data).length >= 1 ||
-      data.routines.trim().length >= MIN_MEMORY_CHARS)
+      data.routines.trim().length >= MIN_MEMORY_CHARS) &&
+    (!dreamStarted(data.dream) || dreamComplete(data.dream))
   );
 }

@@ -1,20 +1,29 @@
-// ÇİFT ANI KİTABI — AI katmanı.
-// Hikaye motoru YOK: çiftin serbest anlattığı malzeme (tanışma + anılar +
-// rutinler) LLM tarafından SAHNELERE BÖLÜNÜR. Bir anlatımdan birden fazla
-// sahne çıkabilir (kurucu örneği: tanışma hikayesi tek başına 3-4 sahne).
+// ÇİFT ANI KİTABI — AI katmanı (v2, 2026-07-21 kurucu geri bildirimiyle).
 //
-// SIKI KURALLAR (2026-07-20):
-// - "(bunu gösterme)" gibi kullanıcı talimatlarına KESİN uyulur.
-// - Mahrem/yetişkin anlar ASLA resmedilmez/ima edilmez; o günün
-//   resmedilebilir tatlı bir anı seçilir (sarılma, film, öpücük).
-// - Sigara ve madde kullanımı görsele girmez (sahne onsuz kurulur);
-//   şarap/kahve sofra estetiği içinde serbest.
-// - Baloncuk her sahnede ZORUNLU DEĞİL — sadece doğal olduğu yerde (0-2).
+// Kitap yapısı artık BÖLÜMLÜ: her bölüm bir italik ara sayfayla açılır
+// (sunucuda basılır, AI görseli değil) ve sahnelerle devam eder:
+//   Tanışma → Anı 1..N → Rutinler → Hayal (opsiyonel)
+//
+// SIKI KURALLAR (kurucunun gerçek demo geri bildiriminden):
+// - Mekân/olay anlatımdakiyle BİREBİR (kim kimi nerede gördü ters çevrilemez).
+// - Fiziksel temas anları kompozisyonun MERKEZİ olur.
+// - Lakaplar kronolojiye uyar: tanışma/flört sahnelerinde KULLANILMAZ;
+//   verilmemiş lakap uydurulamaz.
+// - Evcil hayvanlar SADECE geçtiği sahnede; sahnede yoksa görsele
+//   "hayvan yok" talimatı gider.
+// - Mekân adları ve ayırt edici detaylar tarife AYNEN yazılır (tabela dahil).
+// - Coğrafya: şehir/Türkiye her tarife işlenir (yabancı ülke görünümü yasak).
+// - Kıyafet/ayakkabı mekâna uygun olur.
+// - "(bunu gösterme)" talimatına kesin uyum; mahrem anlar resmedilmez;
+//   sigara/madde görsele girmez (şarap/kahve serbest).
+// - Baloncuk sadece doğal olduğu yerde (0-2).
+// Üretimden önce ayrıca ucuz bir EDİTÖR GEÇİŞİ sahneleri kaynakla karşılaştırır.
 
 import {
   PET_TYPES,
   type RelationshipId,
   type LivingId,
+  type CoupleDream,
 } from "@/lib/couple";
 import { falRawImage, falRawLlm, extractJson } from "./fal";
 import { mockRawImage } from "./mock";
@@ -34,23 +43,37 @@ export type CoupleInput = {
   pets?: CouplePetInput[];
   relationship: RelationshipId;
   livingTogether?: LivingId | null;
+  city?: string; // yaşadıkları şehir (coğrafya bloğu)
+  age1?: string;
+  age2?: string;
+  fixedDetails?: string; // araba/ev gibi değişmeyen detaylar
   nickname1?: string;
   nickname2?: string;
 };
 
-// Çiftin yazdığı ham malzeme.
 export type CoupleMaterial = {
   tanisma: string;
-  memories: string[]; // her eleman ayrı anı bloğu
+  memories: string[];
   routines: string;
+  dream?: CoupleDream | null;
 };
 
 export type MemoryScene = {
-  source: string; // "tanisma" | "ani-1" | "ani-2" ... | "rutin"
-  title: string; // kısa Türkçe başlık (analiz/admin için, ör. "Xbox gecesi")
+  title: string; // kısa Türkçe başlık (admin/log için)
   sceneBrief: string; // İngilizce görsel tarifi
-  bubbles?: { speaker: 1 | 2; text: string }[]; // OPSİYONEL, 0-2
+  bubbles?: { speaker: 1 | 2; text: string }[]; // opsiyonel, 0-2
+  pets?: string[]; // bu sahnede görünen evcil dost İSİMLERİ (boş = hiçbiri)
 };
+
+export type SectionKind = "tanisma" | "ani" | "rutin" | "hayal";
+
+export type BookSection = {
+  kind: SectionKind;
+  intro: string; // italik ara sayfa cümlesi (Türkçe)
+  scenes: MemoryScene[];
+};
+
+export type CoupleBookPlan = { sections: BookSection[] };
 
 const COUPLE_STYLE =
   "romantic soft watercolor illustration, warm cozy colors, tender and " +
@@ -63,9 +86,14 @@ function useMock(): boolean {
   return !process.env.FAL_KEY;
 }
 
-/* ---------- Referans fotoğraf haritası ---------- */
+/* ---------- Referans fotoğraf haritası (sahneye göre) ---------- */
 
-function refMap(input: CoupleInput): { refs: string[]; description: string } {
+// Partner + birlikte fotoğrafları her sahnede gider; evcil dost fotoğrafları
+// YALNIZCA o sahnede görünen dostlar için eklenir (kurucu geri bildirimi #2/#8).
+function refMapForScene(
+  input: CoupleInput,
+  scenePets: string[] | undefined
+): { refs: string[]; description: string } {
   const p1 = input.partner1;
   const p2 = input.partner2;
   const refs = [...p1.photoDatas, ...p2.photoDatas];
@@ -90,53 +118,91 @@ function refMap(input: CoupleInput): { refs: string[]; description: string } {
       `how the couple looks side by side (relative height, posture, chemistry). `;
   }
 
-  for (const pet of input.pets ?? []) {
+  const allPets = input.pets ?? [];
+  const present = allPets.filter((p) =>
+    (scenePets ?? []).some((n) => n.toLowerCase() === p.name.toLowerCase())
+  );
+  for (const pet of present) {
     const en = PET_TYPES.find((t) => t.id === pet.typeId)?.en ?? "pet";
     if (pet.photoDatas[0]) {
       refs.push(pet.photoDatas[0]);
-      description += `Reference photo ${refs.length} shows their ${en} named ${pet.name} — keep it recognizable when it appears. `;
+      description += `Reference photo ${refs.length} shows their ${en} named ${pet.name} — match its colors and markings EXACTLY. `;
     } else {
-      description += `They also have a ${en} named ${pet.name} (no reference photo — draw a cute generic one consistently). `;
+      description += `Include their ${en} named ${pet.name} (no reference photo — draw a cute one, consistent across pages). `;
     }
+  }
+  if (allPets.length > 0 && present.length === 0) {
+    description += `Do NOT include any pets or animals in this scene. `;
   }
   return { refs, description };
 }
 
-/* ---------- LLM: malzeme analizi + sahnelere bölme ---------- */
+// Coğrafya + tutarlılık bloğu: her sahne istemine eklenir.
+function settingBlock(input: CoupleInput): string {
+  const city = input.city?.trim();
+  let s = city
+    ? `Setting: ${city}, Turkey — Turkish architecture, streets, vehicles, signage and daily life; NOT a foreign country. `
+    : `Setting: Turkey — Turkish architecture and daily life. `;
+  const ages = [input.age1, input.age2].filter((a) => a?.trim());
+  if (ages.length === 2) {
+    s += `${input.partner1.name} is ${input.age1} and ${input.partner2.name} is ${input.age2} years old. `;
+  }
+  if (input.fixedDetails?.trim()) {
+    s += `Consistent details that must look IDENTICAL in every scene where they appear: ${input.fixedDetails.trim()}. `;
+  }
+  s += `Characters are dressed appropriately for the location and situation (e.g. shoes in cafés and streets). `;
+  return s;
+}
+
+/* ---------- LLM bağlamı ---------- */
 
 const SEGMENT_SYSTEM_PROMPT =
-  "Sen romantik bir anı kitabı editörüsün. Sana bir çiftin kendi yazdığı ham " +
-  "malzeme verilir: tanışma hikayesi, önemli anılar ve rutinler. Görevin bu " +
-  "malzemeyi RESMEDİLEBİLİR sahnelere bölmek. KESİN KURALLAR: " +
-  "(1) Kullanıcı bir detay için 'bunu gösterme' benzeri bir talimat verdiyse " +
-  "o bilgiyi HİÇBİR sahnede, başlıkta veya baloncukta kullanma. " +
-  "(2) Mahrem/cinsel anları ASLA sahneye çevirme ve ima etme; o günün " +
-  "resmedilebilir tatlı bir anını seç (sarılma, birlikte film, öpücük, uyuyakalma). " +
-  "(3) Sigara ve madde kullanımını görselleştirme — sahneyi onlarsız kur; " +
-  "şarap/kahve gibi içecekler sofra estetiği içinde kalabilir. " +
-  "(4) Anlatılmayan hiçbir şeyi UYDURMA; yer/kıyafet/mevsim detaylarını aynen taşı. " +
-  "(5) Konuşma baloncuğu her sahnede ZORUNLU DEĞİL: sadece doğal ve yerinde " +
-  "olduğu sahnelere 1-2 kısa Türkçe söz ekle (en fazla 60 karakter, klişe değil, " +
-  "hitapları kullan); diğer sahnelerde bubbles boş dizi olsun. " +
+  "Sen romantik bir anı kitabı editörüsün. Çiftin kendi yazdığı ham malzemeyi " +
+  "(tanışma, anılar, rutinler, hayal) BÖLÜMLÜ bir kitap planına çevirirsin. " +
+  "KESİN KURALLAR:\n" +
+  "1) Mekân ve olay akışı anlatımdakiyle BİREBİR aynı olmalı: kim, kimi, nerede, " +
+  "nasıl gördü/yaptı — asla değiştirme, ters çevirme, uydurma.\n" +
+  "2) Kullanıcı bir detay için 'bunu gösterme' benzeri talimat verdiyse o bilgi " +
+  "hiçbir sahnede, başlıkta, cümlede geçemez.\n" +
+  "3) Mahrem/cinsel anları ASLA sahneye çevirme ve ima etme; o günün resmedilebilir " +
+  "tatlı bir anını seç. Sigara ve madde kullanımını görselleştirme; şarap/kahve serbest.\n" +
+  "4) Fiziksel temas anları (ayakların değmesi, el ele, sarılma) anlatıldıysa o temas " +
+  "sahnenin MERKEZİ ve odak noktası olmalı — sceneBrief'te açıkça 'the focal point is...' de.\n" +
+  "5) Lakaplar/hitaplar KRONOLOJİYE uyar: tanışma ve flört dönemi sahnelerinde lakap " +
+  "KULLANILMAZ (isim ya da hitapsız); lakaplar ancak ilişkinin oturduğu anı/rutin/hayal " +
+  "sahnelerinde. Sana verilmeyen hiçbir lakabı uydurma.\n" +
+  "6) Evcil dostlar SADECE anlatımda geçtiği sahnelerin 'pets' listesine yazılır; " +
+  "diğer sahnelerde pets boş dizi olur. Kafede, sahilde, arabada durduk yere hayvan olmaz.\n" +
+  "7) Özel mekân adlarını ve ayırt edici özellikleri sceneBrief'e AYNEN İngilizce tarifle " +
+  "yaz — tabela metni dahil (örn. a café sign reading \"Gardiyanbucks\", a parody of Starbucks). " +
+  "Türkiye'ye özgü öğeleri koru (pide fırını, ince belli çay bardağı, tramvay...).\n" +
+  "8) Baloncuk her sahnede ZORUNLU DEĞİL: sadece doğal olduğu yerde 1-2 kısa Türkçe söz " +
+  "(≤60 karakter, klişe değil); diğerlerinde bubbles boş dizi.\n" +
+  "9) İtalik ara sayfa cümleleri (intro): kısa (≤100 karakter), sıcak, romantik ama " +
+  "klişeye kaçmayan TÜRKÇE cümleler; bölümün içeriğine özel olsun.\n" +
   "İstenen JSON'un dışına asla çıkma.";
 
 function materialBlock(material: CoupleMaterial): string {
   const memories = material.memories
-    .map((m, i) => `--- ANI ${i + 1} [source: ani-${i + 1}] ---\n${m}`)
+    .map((m, i) => `--- ANI ${i + 1} ---\n${m}`)
     .join("\n\n");
+  const dream =
+    material.dream && material.dream.description?.trim()
+      ? `--- HAYAL (${material.dream.years} yıl sonra, ${material.dream.place}) ---\n${material.dream.description}`
+      : "";
   return (
-    `--- TANIŞMA HİKAYESİ [source: tanisma] ---\n${material.tanisma}\n\n` +
+    `--- TANIŞMA HİKAYESİ ---\n${material.tanisma}\n\n` +
     (memories ? `${memories}\n\n` : "") +
-    (material.routines.trim()
-      ? `--- RUTİNLER [source: rutin] ---\n${material.routines}`
-      : "")
+    (material.routines.trim() ? `--- RUTİNLER ---\n${material.routines}\n\n` : "") +
+    dream
   );
 }
 
 function coupleContext(input: CoupleInput): string {
   const nick =
-    `${input.partner1.name}'e seslenilen: "${input.nickname1?.trim() || input.partner1.name}"; ` +
-    `${input.partner2.name}'e seslenilen: "${input.nickname2?.trim() || input.partner2.name}".`;
+    `Lakaplar (SADECE ilerleyen dönem sahnelerinde): ` +
+    `${input.partner1.name}'e seslenilen: "${input.nickname1?.trim() || "(verilmedi)"}"; ` +
+    `${input.partner2.name}'e seslenilen: "${input.nickname2?.trim() || "(verilmedi)"}".`;
   const living =
     input.livingTogether === "birlikte"
       ? "Birlikte yaşıyorlar."
@@ -155,38 +221,45 @@ function coupleContext(input: CoupleInput): string {
       return `${p.name} (${t}, ${owner})`;
     })
     .join(", ");
+  const ages =
+    input.age1?.trim() && input.age2?.trim()
+      ? ` Yaşları: ${input.partner1.name} ${input.age1}, ${input.partner2.name} ${input.age2}.`
+      : "";
+  const fixed = input.fixedDetails?.trim()
+    ? ` Değişmeyen detaylar (her sahnede aynı görünmeli): ${input.fixedDetails.trim()}.`
+    : "";
   return (
     `Çift: ${input.partner1.name} (1. kişi) ve ${input.partner2.name} (2. kişi), ${input.relationship}. ` +
-    `${living} ${nick}` +
-    (pets ? ` Evcil dostları: ${pets}.` : "")
+    `Şehir: ${input.city?.trim() || "Türkiye"}.${ages} ${living} ${nick}` +
+    (pets ? ` Evcil dostları: ${pets}.` : "") +
+    fixed
   );
 }
 
-// Malzeme analizi: kaç resmedilebilir sahne çıkar? (görsel üretimi YOK,
-// yalnızca ucuz bir LLM çağrısı — sayfa önerisi bundan hesaplanır.)
+/* ---------- Analiz (görselsiz, ucuz) ---------- */
+
 export async function analyzeCoupleMaterial(
   input: CoupleInput,
   material: CoupleMaterial
 ): Promise<{ sceneCount: number; sceneTitles: string[] }> {
   if (useMock()) {
-    // Kaba sezgisel: blok başına uzunluğa göre 1-4 sahne.
     const blocks = [
       material.tanisma,
       ...material.memories,
       ...material.routines.split(/\n{2,}|\n(?=[-•*])/),
+      material.dream?.description ?? "",
     ].filter((b) => b.trim().length >= 30);
-    const titles = blocks.map((b, i) => {
+    const flat = blocks.flatMap((b, i) => {
       const est = Math.min(4, 1 + Math.floor(b.trim().split(/\s+/).length / 80));
       return Array.from({ length: est }, (_, j) => `Sahne ${i + 1}.${j + 1}`);
     });
-    const flat = titles.flat();
     return { sceneCount: flat.length, sceneTitles: flat };
   }
 
   const prompt =
     `${coupleContext(input)}\n\n${materialBlock(material)}\n\n` +
     `Bu malzemeden kaç RESMEDİLEBİLİR sahne çıkar? Zengin anlatımlardan birden ` +
-    `fazla sahne çıkarabilirsin (ör. uzun bir tanışma hikayesi 3-4 sahne olabilir); ` +
+    `fazla sahne çıkarabilirsin (uzun bir tanışma hikayesi 3-4+ sahne olabilir); ` +
     `rutinlerin her biri ayrı sahne olabilir. Mahrem/yasaklı içerik sahne SAYILMAZ. ` +
     `Her sahneye 2-4 kelimelik Türkçe başlık ver.\n\n` +
     `SADECE şu JSON'u döndür: {"scenes": ["başlık 1", "başlık 2", ...]}`;
@@ -198,68 +271,160 @@ export async function analyzeCoupleMaterial(
   return { sceneCount: parsed.scenes.length, sceneTitles: parsed.scenes };
 }
 
-// Malzemeyi TAM OLARAK targetCount sahneye böl.
-// fixedFirst verilirse 1. sahne aynen korunur (önizleme yeniden kullanımı).
-export async function writeCoupleScenes(
+/* ---------- Kitap planı: bölümler + sahneler + intro cümleleri ---------- */
+
+const PLAN_SCHEMA =
+  `{"sections": [{"kind": "tanisma" | "ani" | "rutin" | "hayal", ` +
+  `"intro": "italik ara sayfa cümlesi (Türkçe)", ` +
+  `"scenes": [{"title": "...", "sceneBrief": "...", ` +
+  `"bubbles": [{"speaker": 1 | 2, "text": "..."}], "pets": ["isim"]}]}]}`;
+
+export async function writeCouplePlan(
   input: CoupleInput,
   material: CoupleMaterial,
-  targetCount: number,
+  targetImages: number,
   fixedFirst?: MemoryScene
-): Promise<MemoryScene[]> {
+): Promise<CoupleBookPlan> {
+  const hasDream = !!material.dream?.description?.trim();
+
   if (useMock()) {
-    const scenes: MemoryScene[] = Array.from({ length: targetCount }, (_, i) => ({
-      source: i === 0 ? "tanisma" : i % 3 === 2 ? "rutin" : `ani-${(i % 2) + 1}`,
-      title: `Mock sahne ${i + 1}`,
-      sceneBrief: `The couple together, warm scene ${i + 1} based on their memories.`,
-      // baloncuk her sahnede DEĞİL — opsiyonelliği test etmek için değişken
-      bubbles:
-        i % 2 === 0
-          ? [{ speaker: 1, text: `Bunu hiç unutmam ${input.nickname2?.trim() || ""} 💕`.trim() }]
-          : [],
-    }));
-    if (fixedFirst) scenes[0] = fixedFirst;
-    return scenes;
+    // Deterministik mock planı: bölümlere sırayla dağıt.
+    const sections: BookSection[] = [];
+    let left = targetImages;
+    const mkScene = (i: number, pets: string[] = []): MemoryScene => ({
+      title: `Mock sahne ${i}`,
+      sceneBrief: `The couple in mock scene ${i}.`,
+      bubbles: i % 2 === 0 ? [{ speaker: 1, text: "Mock baloncuk 💕" }] : [],
+      pets,
+    });
+    const take = (n: number) => {
+      const c = Math.max(0, Math.min(n, left));
+      left -= c;
+      return c;
+    };
+    const tanismaCount = take(Math.max(1, Math.ceil(targetImages * 0.3)));
+    sections.push({
+      kind: "tanisma",
+      intro: "Seni ilk gördüğüm an…",
+      scenes: Array.from({ length: tanismaCount }, (_, i) => mkScene(i + 1)),
+    });
+    material.memories.forEach((_, mi) => {
+      const n = take(2);
+      if (n > 0)
+        sections.push({
+          kind: "ani",
+          intro: `Anı ${mi + 1} için içten bir cümle…`,
+          scenes: Array.from({ length: n }, (_, i) => mkScene(i + 1)),
+        });
+    });
+    if (material.routines.trim()) {
+      const n = take(hasDream ? Math.max(0, left - 1) : left);
+      if (n > 0)
+        sections.push({
+          kind: "rutin",
+          intro: "Birlikte olmanın en güzel yanı, sıradan günler…",
+          scenes: Array.from({ length: n }, (_, i) =>
+            mkScene(i + 1, i === 0 ? (input.pets ?? []).map((p) => p.name) : [])
+          ),
+        });
+    }
+    if (hasDream && left > 0) {
+      sections.push({
+        kind: "hayal",
+        intro: "Seninle birlikte…",
+        scenes: Array.from({ length: left }, (_, i) => mkScene(i + 1)),
+      });
+      left = 0;
+    }
+    if (fixedFirst && sections[0]?.scenes[0]) sections[0].scenes[0] = fixedFirst;
+    return { sections };
   }
 
-  const remaining = fixedFirst ? targetCount - 1 : targetCount;
   const fixedNote = fixedFirst
-    ? `\n\nÖNEMLİ: 1. sahne DAHA ÖNCE üretildi ve görseli hazır — onu LİSTEYE DAHİL ETME ` +
-      `ve içeriğini tekrarlama. Hazır 1. sahne: ${JSON.stringify({
+    ? `\n\nÖNEMLİ: Tanışma bölümünün 1. sahnesi DAHA ÖNCE üretildi ve görseli hazır — ` +
+      `onu plana DAHİL ETME ve içeriğini tekrarlama (hazır sahne: ${JSON.stringify({
         title: fixedFirst.title,
         sceneBrief: fixedFirst.sceneBrief,
-      })}\nSen kalan ${remaining} sahneyi üret.`
+      })}). Sen kalan ${targetImages - 1} sahneyi üret; tanışma bölümü yine de var olmalı ` +
+      `(intro cümlesi + varsa ek tanışma sahneleri).`
     : "";
+
   const prompt =
     `${coupleContext(input)}\n\n${materialBlock(material)}\n\n` +
-    `Bu malzemeyi TAM OLARAK ${remaining} resmedilebilir sahneye böl. ` +
-    `Zengin anlatımlardan birden fazla sahne çıkar; rutinlerin her biri ayrı sahne ` +
-    `olabilir. En önemli/duygusal anlara öncelik ver; sahneleri kronolojik sırala ` +
-    `(tanışma önce, rutinler sona).${fixedNote}\n\n` +
-    `Her sahne için üret:\n` +
-    `- "source": hangi bölümden geldiği (tanisma / ani-1 / ani-2 / ... / rutin)\n` +
-    `- "title": 2-4 kelimelik Türkçe başlık\n` +
-    `- "sceneBrief": İngilizce resim tarifi (1-2 cümle; kişileri "${input.partner1.name}" ve ` +
-    `"${input.partner2.name}" olarak adlandır; anıdaki mekan/kıyafet/mevsim detaylarını kullan)\n` +
-    `- "bubbles": SADECE doğalsa 1-2 baloncuk [{"speaker": 1 veya 2, "text": "kısa Türkçe söz"}], ` +
-    `değilse boş dizi []\n\n` +
-    `SADECE şu JSON'u döndür: {"scenes": [{"source": "...", "title": "...", "sceneBrief": "...", "bubbles": [...]}, ...]}`;
+    `Bu malzemeyi BÖLÜMLÜ bir kitap planına çevir. Bölüm sırası SABİT:\n` +
+    `1. "tanisma" (tanışma hikayesi — zengin anlatımdan birden fazla sahne çıkar)\n` +
+    `2. her önemli anı için ayrı bir "ani" bölümü (sırayla; anı başına ortalama 2-4 sahne, ` +
+    `anının zenginliğine göre)\n` +
+    (material.routines.trim() ? `3. "rutin" (rutinlerin her biri ayrı sahne olabilir)\n` : "") +
+    (hasDream
+      ? `4. "hayal" (${material.dream!.years} yıl sonrası, ${material.dream!.place} — 1-2 sahne; ` +
+        `intro cümlesi "Seninle birlikte…" ruhunda olsun)\n`
+      : "") +
+    `\nTOPLAM SAHNE (görsel) SAYISI TAM OLARAK ${fixedFirst ? targetImages - 1 : targetImages} olmalı ` +
+    `(bölümlere sen dağıt; intro sayfaları bu sayıya dahil değil).${fixedNote}\n\n` +
+    `Her sahne için: "title" (2-4 kelime Türkçe), "sceneBrief" (İngilizce resim tarifi, 1-2 cümle; ` +
+    `kişileri "${input.partner1.name}" ve "${input.partner2.name}" olarak adlandır; mekân/kıyafet/mevsim ` +
+    `detaylarını anlatımdan AYNEN taşı), "bubbles" (sadece doğalsa), "pets" (bu sahnede görünen ` +
+    `evcil dost isimleri, yoksa boş dizi).\n` +
+    (hasDream
+      ? `"hayal" sahnelerinin sceneBrief'ine mutlaka ekle: "the same couple aged about ` +
+        `${material.dream!.years} years older, still clearly recognizable".\n`
+      : "") +
+    `\nSADECE şu JSON'u döndür: ${PLAN_SCHEMA}`;
 
-  let scenes: MemoryScene[] = [];
-  if (remaining > 0) {
-    const output = await falRawLlm(SEGMENT_SYSTEM_PROMPT, prompt);
-    const parsed = extractJson<{ scenes: MemoryScene[] }>(output);
-    if (!Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
-      throw new Error("LLM sahne üretemedi.");
-    }
-    // Sayı birebir tutmayabilir — kırp ya da eksikse hatayla yüzleş.
-    scenes = parsed.scenes.slice(0, remaining);
-    if (scenes.length < remaining) {
-      throw new Error(
-        `LLM sahne sayısı eksik (beklenen ${remaining}, gelen ${scenes.length}).`
-      );
-    }
+  const output = await falRawLlm(SEGMENT_SYSTEM_PROMPT, prompt);
+  const plan = extractJson<CoupleBookPlan>(output);
+  if (!Array.isArray(plan.sections) || plan.sections.length === 0) {
+    throw new Error("LLM kitap planı üretemedi.");
   }
-  return fixedFirst ? [fixedFirst, ...scenes] : scenes;
+  if (fixedFirst) {
+    const first = plan.sections.find((s) => s.kind === "tanisma") ?? plan.sections[0];
+    first.scenes.unshift(fixedFirst);
+  }
+  const total = plan.sections.reduce((n, s) => n + s.scenes.length, 0);
+  if (total < Math.max(3, targetImages - 2)) {
+    throw new Error(`Plan sahne sayısı çok eksik (hedef ${targetImages}, gelen ${total}).`);
+  }
+  return plan;
+}
+
+/* ---------- Editör geçişi: üretimden önce otomatik kalite kontrolü ---------- */
+
+const REVIEW_SYSTEM_PROMPT =
+  "Sen titiz bir yayın editörüsün. Sana bir çiftin ham anlatımı ve ondan çıkarılmış " +
+  "kitap planı verilir. Planı KAYNAKLA karşılaştırıp hataları DÜZELTİLMİŞ planla " +
+  "yanıtlarsın. Kontrol listesi:\n" +
+  "1) Mekân/olay/yön anlatımla birebir mi? (kim kimi nerede gördü, kim ne yaptı)\n" +
+  "2) Tanışma/flört sahnelerinde lakap kullanılmış mı? Kullanıldıysa kaldır/isimle değiştir.\n" +
+  "3) Sahnenin 'pets' listesi anlatımla uyumlu mu? Anlatımda geçmeyen sahnelerden hayvanları çıkar.\n" +
+  "4) Fiziksel temas anlatıldıysa sceneBrief'te odak noktası olarak geçiyor mu? Değilse ekle.\n" +
+  "5) 'bunu gösterme' talimatları ihlal edilmiş mi? Edildiyse o içeriği tamamen çıkar.\n" +
+  "6) Mekân adları/ayırt edici detaylar (tabela vb.) tarifte var mı? Yoksa ekle.\n" +
+  "7) Kıyafet/ayakkabı mekâna uygun mu? (kafede çıplak ayak olmaz)\n" +
+  "Sahne SAYISINI ve bölüm yapısını DEĞİŞTİRME — sadece içerikleri düzelt. " +
+  "İstenen JSON'un dışına asla çıkma.";
+
+export async function reviewCouplePlan(
+  input: CoupleInput,
+  material: CoupleMaterial,
+  plan: CoupleBookPlan
+): Promise<CoupleBookPlan> {
+  if (useMock()) return plan;
+  const prompt =
+    `${coupleContext(input)}\n\n=== KAYNAK MALZEME ===\n${materialBlock(material)}\n\n` +
+    `=== KONTROL EDİLECEK PLAN ===\n${JSON.stringify(plan)}\n\n` +
+    `Planı kontrol listesine göre düzelt ve TAMAMINI döndür.\n` +
+    `SADECE şu JSON'u döndür: ${PLAN_SCHEMA}`;
+  try {
+    const output = await falRawLlm(REVIEW_SYSTEM_PROMPT, prompt);
+    const fixed = extractJson<CoupleBookPlan>(output);
+    const origCount = plan.sections.reduce((n, s) => n + s.scenes.length, 0);
+    const newCount = fixed.sections?.reduce((n, s) => n + s.scenes.length, 0) ?? 0;
+    // Editör sahne kaybettiyse güvenli tarafta kal: orijinali kullan.
+    return newCount === origCount ? fixed : plan;
+  } catch {
+    return plan; // editör çökerse üretim durmasın
+  }
 }
 
 /* ---------- Görsel üretimi ---------- */
@@ -273,10 +438,14 @@ export async function generateCoupleCover(input: CoupleInput): Promise<Buffer> {
   if (useMock()) {
     return mockRawImage(title, input.partner1.photoDatas);
   }
-  const { refs, description } = refMap(input);
+  const { refs, description } = refMapForScene(
+    input,
+    (input.pets ?? []).map((p) => p.name) // kapakta dostlar olabilir
+  );
   const prompt =
     `Romantic memory book COVER illustration. ${COUPLE_STYLE}. ` +
     description +
+    settingBlock(input) +
     `The couple together in a warm, happy pose that fits their story. ` +
     `Render the title text "${title}" prominently at the top in an elegant, warm ` +
     `handwritten-style font, and the small subtitle "Anılarımız" below it ` +
@@ -285,27 +454,32 @@ export async function generateCoupleCover(input: CoupleInput): Promise<Buffer> {
   return falRawImage(prompt, refs);
 }
 
-// Anı sayfası görseli — görselde YAZI OLMAZ (baloncuk sunucuda basılır).
-// Baloncuğu olmayan sahnede üst bölgeyi boş bırakma talimatı da verilmez.
 export async function generateCoupleScene(
   input: CoupleInput,
-  scene: MemoryScene
+  scene: MemoryScene,
+  opts: { agedYears?: number | null } = {}
 ): Promise<Buffer> {
   if (useMock()) {
     return mockRawImage(`Anı: ${scene.title}`, input.partner1.photoDatas);
   }
-  const { refs, description } = refMap(input);
+  const { refs, description } = refMapForScene(input, scene.pets);
   const hasBubbles = (scene.bubbles?.length ?? 0) > 0;
   const bubbleSpace = hasBubbles
     ? ` Leave the top ~20% of the composition visually calm (sky, wall, soft background) ` +
       `so speech bubbles can be placed there later.`
     : "";
+  const aging = opts.agedYears
+    ? ` The couple is depicted about ${opts.agedYears} years OLDER than in the reference photos — ` +
+      `age them naturally (hair, face) but keep both clearly recognizable.`
+    : "";
   const prompt =
     `Romantic memory book INTERIOR full-page illustration. ${COUPLE_STYLE}. ` +
     description +
+    settingBlock(input) +
     scene.sceneBrief +
+    aging +
     bubbleSpace +
-    ` Absolutely no text, no words, no letters in the image. Portrait orientation, no watermarks.`;
+    ` Absolutely no text except signage explicitly described above; no watermarks. Portrait orientation.`;
   return falRawImage(prompt, refs);
 }
 

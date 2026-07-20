@@ -25,6 +25,8 @@ import {
   COUPLE_ANALYSIS_STORAGE_KEY,
   filledMemories,
   isCoupleComplete,
+  dreamStarted,
+  dreamComplete,
   initialCoupleState,
   loadCoupleState,
   saveCoupleState,
@@ -44,6 +46,8 @@ type Preview = {
 
 type Analysis = {
   sceneCount: number;
+  sectionCount: number;
+  totalPages: number;
   sceneTitles: string[];
   recommendedPackageId: string;
   recommendedPages: number;
@@ -58,6 +62,7 @@ const STEP_TITLES = [
   "Tanışma hikayeniz",
   "Önemli anılarınız",
   "Rutinleriniz",
+  "Hayaliniz",
   "Özet & Önizleme",
 ];
 const SUMMARY_STEP = STEP_TITLES.length - 1;
@@ -111,8 +116,10 @@ export default function CoupleWizardPage() {
         data.partner2.photoUrls.length >= 1
       );
     }
-    if (step === 1) return !!data.relationship;
+    if (step === 1) return !!data.relationship && data.city.trim().length >= 2;
     if (step === 4) return data.tanisma.trim().length >= MIN_TANISMA_CHARS;
+    // Hayal: boş bırakılabilir; başlandıysa üç alan da dolmalı.
+    if (step === 7) return !dreamStarted(data.dream) || dreamComplete(data.dream);
     return true;
   }, [step, data]);
 
@@ -128,6 +135,10 @@ export default function CoupleWizardPage() {
           partner2: { name: data.partner2.name },
           relationship: data.relationship,
           livingTogether: data.livingTogether,
+          city: data.city,
+          age1: data.age1,
+          age2: data.age2,
+          fixedDetails: data.fixedDetails,
           nickname1: data.nickname1,
           nickname2: data.nickname2,
           pets: data.pets.map((p) => ({
@@ -138,6 +149,7 @@ export default function CoupleWizardPage() {
           tanisma: data.tanisma,
           memories,
           routines: data.routines,
+          dream: dreamComplete(data.dream) ? data.dream : null,
         }),
       });
       const json = await res.json();
@@ -186,6 +198,10 @@ export default function CoupleWizardPage() {
           })),
           relationship: data.relationship,
           livingTogether: data.livingTogether,
+          city: data.city,
+          age1: data.age1,
+          age2: data.age2,
+          fixedDetails: data.fixedDetails,
           nickname1: data.nickname1,
           nickname2: data.nickname2,
           tanisma: data.tanisma,
@@ -305,13 +321,14 @@ export default function CoupleWizardPage() {
                 <p className="font-bold text-ink">
                   Birlikte fotoğraflarınız{" "}
                   <span className="font-normal text-ink-soft">
-                    (isteğe bağlı ama çok faydalı)
+                    (benzerliğin sırrı burada — en az 3 önerilir)
                   </span>
                 </p>
                 <p className="mt-1 text-sm text-ink-soft">
                   İkinizin aynı karede olduğu {MAX_TOGETHER_PHOTOS} fotoğrafa
-                  kadar ekleyin — çizimlerde yan yana duruşunuz ve uyumunuz
-                  çok daha isabetli olur.
+                  kadar ekleyin — yüzleriniz, boy farkınız ve yan yana
+                  duruşunuz en çok bu karelerden öğrenilir. Ne kadar çok, o
+                  kadar benzer.
                 </p>
                 <div className="mt-3">
                   <PhotoList
@@ -384,6 +401,67 @@ export default function CoupleWizardPage() {
                   />
                 ))}
               </div>
+
+              <div className="mt-8 grid sm:grid-cols-3 gap-4">
+                <label className="block sm:col-span-1">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    Hangi şehirde yaşıyorsunuz?
+                  </span>
+                  <input
+                    type="text"
+                    value={data.city}
+                    onChange={(e) => update({ city: e.target.value })}
+                    placeholder="Örn. İzmir"
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                  <span className="mt-1 block text-xs text-ink-soft">
+                    Çizimlerdeki sokaklar ve mekânlar buraya göre olur.
+                  </span>
+                </label>
+                <label className="block">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    {data.partner1.name || "1. kişi"} yaş{" "}
+                    <span className="font-normal text-ink-soft">(ops.)</span>
+                  </span>
+                  <input
+                    type="number"
+                    value={data.age1}
+                    onChange={(e) => update({ age1: e.target.value })}
+                    placeholder="30"
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                </label>
+                <label className="block">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    {data.partner2.name || "2. kişi"} yaş{" "}
+                    <span className="font-normal text-ink-soft">(ops.)</span>
+                  </span>
+                  <input
+                    type="number"
+                    value={data.age2}
+                    onChange={(e) => update({ age2: e.target.value })}
+                    placeholder="28"
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                </label>
+              </div>
+
+              <label className="mt-6 block">
+                <span className="block text-sm font-bold text-ink mb-1.5">
+                  Değişmeyen detaylar{" "}
+                  <span className="font-normal text-ink-soft">(isteğe bağlı ama önerilir)</span>
+                </span>
+                <textarea
+                  value={data.fixedDetails}
+                  onChange={(e) => update({ fixedDetails: e.target.value })}
+                  placeholder="Örn. Arabamız beyaz bir Renault Clio. Evde gri L koltuk ve 75 inç TV var."
+                  rows={3}
+                  className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                />
+                <span className="mt-1 block text-xs text-ink-soft">
+                  Araba, ev gibi tekrar eden şeyler her sayfada AYNI görünsün diye.
+                </span>
+              </label>
             </StepShell>
           )}
 
@@ -526,7 +604,77 @@ export default function CoupleWizardPage() {
             </StepShell>
           )}
 
-          {/* 7 — Özet + analiz + önizleme */}
+          {/* 7 — Hayaliniz (opsiyonel bölüm; başlanırsa üç alan da zorunlu) */}
+          {step === 7 && (
+            <StepShell
+              title="Birlikte hayaliniz 🌅"
+              subtitle="İsteğe bağlı — kitabınız bu hayalle kapanır. İkinizi yıllar sonra nasıl görmeyi hayal ediyorsunuz?"
+            >
+              <div className="grid sm:grid-cols-3 gap-4">
+                <label className="block">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    Kaç yıl sonra?
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={80}
+                    value={data.dream.years ?? ""}
+                    onChange={(e) =>
+                      update({
+                        dream: {
+                          ...data.dream,
+                          years: e.target.value === "" ? null : Number(e.target.value),
+                        },
+                      })
+                    }
+                    placeholder="Örn. 10"
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                </label>
+                <label className="block sm:col-span-2">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    Nerede?
+                  </span>
+                  <input
+                    type="text"
+                    value={data.dream.place}
+                    onChange={(e) =>
+                      update({ dream: { ...data.dream, place: e.target.value } })
+                    }
+                    placeholder="Örn. Ege'de küçük bir kasaba"
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                </label>
+              </div>
+              <label className="mt-5 block">
+                <span className="block text-sm font-bold text-ink mb-1.5">
+                  İkinizi orada nasıl hayal ediyorsunuz?
+                </span>
+                <textarea
+                  value={data.dream.description}
+                  onChange={(e) =>
+                    update({ dream: { ...data.dream, description: e.target.value } })
+                  }
+                  placeholder="Ne yapıyorsunuz? Nasıl bir eviniz var? Yanınızda kimler, hangi hayvanlar var? Bir gününüz nasıl geçiyor? (Örn. yaşlanmışız, kasabada çiftçilik yapıyoruz, 3 köpeğimiz var...)"
+                  rows={7}
+                  className="w-full rounded-2xl border border-ink/15 px-5 py-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                />
+              </label>
+              {dreamStarted(data.dream) && !dreamComplete(data.dream) && (
+                <p className="mt-3 text-sm font-semibold text-amber-600">
+                  ✍️ Hayal bölümüne başladınız — devam etmek için üç alanı da
+                  doldurun (ya da hepsini boşaltın).
+                </p>
+              )}
+              <p className="mt-3 text-xs text-ink-soft">
+                Bu sayfada ikiniz, yazdığınız yıl kadar yaşlanmış halinizle
+                resmedilirsiniz. 🤍
+              </p>
+            </StepShell>
+          )}
+
+          {/* 8 — Özet + analiz + önizleme */}
           {step === SUMMARY_STEP && (
             <StepShell
               title="Neredeyse hazır! 💝"
@@ -556,6 +704,7 @@ export default function CoupleWizardPage() {
                     {data.routines.trim().length >= MIN_MEMORY_CHARS
                       ? " + rutinler"
                       : ""}
+                    {dreamComplete(data.dream) ? " + hayal" : ""}
                     {data.pets.length > 0
                       ? ` · ${data.pets.map((p) => p.name).join(", ")}`
                       : ""}
@@ -585,7 +734,8 @@ export default function CoupleWizardPage() {
                       </p>
                     )}
                     <p className="mt-3 text-sm text-ink">
-                      Önerimiz:{" "}
+                      {analysis.sceneCount} resimli sahne + {analysis.sectionCount}{" "}
+                      bölüm sayfası ≈ {analysis.totalPages} sayfa. Önerimiz:{" "}
                       <strong>{analysis.recommendedPages} sayfalık kitap</strong>{" "}
                       (₺{analysis.recommendedPrice}). Sipariş adımında farklı bir
                       boyut da seçebilirsiniz.

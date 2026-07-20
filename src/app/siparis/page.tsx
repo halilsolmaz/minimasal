@@ -139,11 +139,19 @@ export default function CheckoutPage() {
               })),
               relationship: couple!.relationship,
               livingTogether: couple!.livingTogether,
+              city: couple!.city,
+              age1: couple!.age1,
+              age2: couple!.age2,
+              fixedDetails: couple!.fixedDetails,
               nickname1: couple!.nickname1,
               nickname2: couple!.nickname2,
               tanisma: couple!.tanisma,
               memories: filledMemories(couple!),
               routines: couple!.routines,
+              dream:
+                couple!.dream.years !== null && couple!.dream.description.trim()
+                  ? couple!.dream
+                  : null,
             },
             teaserId,
             packageId,

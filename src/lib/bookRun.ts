@@ -7,20 +7,24 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { PDFDocument } from "pdf-lib";
 import { getOrder, type Order } from "./orders";
 import { getTeaser } from "./teasers";
 import { PACKAGES, COUPLE_PACKAGES } from "./brand";
 import { generateImage, writeStory } from "./ai";
 import {
-  writeCoupleScenes,
+  writeCouplePlan,
+  reviewCouplePlan,
   generateCoupleCover,
   generateCoupleScene,
   sceneBubbles,
   coupleTitle,
   type CoupleInput,
+  type CoupleMaterial,
   type MemoryScene,
 } from "./ai/couple";
 import { overlayBubbles } from "./ai/bubbles";
+import { renderIntroPage, renderStoryTextPage } from "./ai/textPages";
 import type { LivingId, RelationshipId } from "./couple";
 
 function dataUrlToBuffer(dataUrl: string): Buffer {
@@ -34,6 +38,17 @@ function outDirFor(shortId: string): string {
 function log(dir: string, message: string) {
   const line = `[${new Date().toLocaleTimeString("tr-TR")}] ${message}\n`;
   fs.appendFileSync(path.join(dir, "durum.txt"), line, "utf8");
+}
+
+// Sayfa görsellerini (JPEG buffer sırası) tek PDF'e paketler.
+async function writePdf(dir: string, pages: Buffer[]) {
+  const pdf = await PDFDocument.create();
+  for (const buf of pages) {
+    const img = await pdf.embedJpg(buf);
+    const page = pdf.addPage([img.width, img.height]);
+    page.drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+  }
+  fs.writeFileSync(path.join(dir, "kitap.pdf"), await pdf.save());
 }
 
 export async function runBookGeneration(orderId: string): Promise<void> {
@@ -68,8 +83,6 @@ export async function runBookGeneration(orderId: string): Promise<void> {
       })),
     };
 
-    // Önizlemeden gelen sipariş: başlık + 1. sahne (metin + görsel) ve
-    // kapak AYNEN yeniden kullanılır — önizleme maliyeti boşa gitmez.
     const teaser = order.teaserId ? getTeaser(order.teaserId) : null;
     const reuse = !!(teaser?.scene1 && teaser.coverRaw && teaser.page1Raw);
     if (reuse) log(dir, "Önizleme bulundu: kapak + 1. sahne oradan kullanılacak.");
@@ -90,39 +103,50 @@ export async function runBookGeneration(orderId: string): Promise<void> {
     );
     log(dir, `Hikaye hazır: "${story.title}"`);
 
+    let cover: Buffer;
     if (reuse) {
-      fs.writeFileSync(path.join(dir, "00-kapak.jpg"), dataUrlToBuffer(teaser!.coverRaw!));
+      cover = dataUrlToBuffer(teaser!.coverRaw!);
       log(dir, "Kapak önizlemeden alındı.");
     } else {
       log(dir, "Kapak üretiliyor...");
-      const cover = await generateImage({
-        ...storyInput,
-        kind: "cover",
-        title: story.title,
-      });
-      fs.writeFileSync(path.join(dir, "00-kapak.jpg"), cover.image);
+      cover = (await generateImage({ ...storyInput, kind: "cover", title: story.title }))
+        .image;
       log(dir, "Kapak hazır.");
     }
+    fs.writeFileSync(path.join(dir, "00-kapak.jpg"), cover);
 
+    const sceneImages: Buffer[] = [];
     for (let i = 0; i < story.scenes.length; i++) {
+      let img: Buffer;
       if (i === 0 && reuse) {
-        fs.writeFileSync(path.join(dir, "01-sahne.jpg"), dataUrlToBuffer(teaser!.page1Raw!));
+        img = dataUrlToBuffer(teaser!.page1Raw!);
         log(dir, "Sahne 1 görseli önizlemeden alındı.");
-        continue;
+      } else {
+        log(dir, `Sahne ${i + 1}/${story.scenes.length} görseli üretiliyor...`);
+        img = (
+          await generateImage({
+            ...storyInput,
+            kind: "page",
+            title: story.title,
+            sceneBrief: story.scenes[i].imageBrief,
+          })
+        ).image;
       }
-      log(dir, `Sahne ${i + 1}/${story.scenes.length} görseli üretiliyor...`);
-      const page = await generateImage({
-        ...storyInput,
-        kind: "page",
-        title: story.title,
-        sceneBrief: story.scenes[i].imageBrief,
-      });
       fs.writeFileSync(
         path.join(dir, `${String(i + 1).padStart(2, "0")}-sahne.jpg`),
-        page.image
+        img
       );
+      sceneImages.push(img);
     }
-    log(dir, "Tüm görseller hazır. kitap.html yazılıyor...");
+    log(dir, "Tüm görseller hazır. kitap.html + kitap.pdf yazılıyor...");
+
+    // PDF: kapak + her sahne için (metin sayfası + görsel sayfası).
+    const pdfPages: Buffer[] = [cover];
+    for (let i = 0; i < story.scenes.length; i++) {
+      pdfPages.push(await renderStoryTextPage(story.scenes[i].pageText, i * 2 + 1));
+      pdfPages.push(sceneImages[i]);
+    }
+    await writePdf(dir, pdfPages);
 
     const spreads = story.scenes
       .map(
@@ -150,20 +174,21 @@ export async function runBookGeneration(orderId: string): Promise<void> {
   .note{color:#8a8496;font-family:sans-serif;font-size:14px;max-width:640px;text-align:center}
 </style></head><body>
 <h1>${story.title}</h1>
-<p class="note">Sipariş ${shortId} · ${story.scenes.length} sahne / ${story.scenes.length * 2} iç sayfa · üretici: ${story.provider}${reuse ? " · kapak+1. sahne önizlemeden" : ""}</p>
+<p class="note">Sipariş ${shortId} · ${story.scenes.length} sahne · üretici: ${story.provider}${reuse ? " · kapak+1. sahne önizlemeden" : ""}</p>
 <div class="cover"><img src="00-kapak.jpg"></div>
 ${spreads}
 </body></html>`,
       "utf8"
     );
-    log(dir, `✅ BİTTİ → kitap.html`);
+    log(dir, `✅ BİTTİ → kitap.html + kitap.pdf`);
   } catch (err) {
     log(dir, `❌ HATA: ${err instanceof Error ? err.message : String(err)}`);
     console.error(`Kitap üretimi başarısız (${shortId}):`, err);
   }
 }
 
-// Çift anı kitabı üretimi: her cevaplanan anı = 1 tam sayfa görsel + baloncuk.
+/* ---------- Çift anı kitabı (v2: bölümlü şablon) ---------- */
+
 async function runCoupleBook(
   order: Order,
   dir: string,
@@ -178,70 +203,113 @@ async function runCoupleBook(
       pets: c.pets ?? [],
       relationship: c.relationship as RelationshipId,
       livingTogether: (c.livingTogether ?? null) as LivingId | null,
+      city: c.city,
+      age1: c.age1,
+      age2: c.age2,
+      fixedDetails: c.fixedDetails,
       nickname1: c.nickname1,
       nickname2: c.nickname2,
     };
     const title = coupleTitle(input);
-    // Hedef sayfa sayısı seçilen kademeden (10/15/20/25/30).
-    const targetCount =
-      COUPLE_PACKAGES.find((p) => p.id === order.packageId)?.scenes ?? 10;
-    log(dir, `Üretim başladı — ${title} (çift anı kitabı, ${targetCount} sayfa)`);
+    const tierPages =
+      COUPLE_PACKAGES.find((p) => p.id === order.packageId)?.pages ?? 10;
 
-    const material = {
+    const material: CoupleMaterial = {
       tanisma: c.tanisma,
       memories: c.memories.filter((m) => m.trim().length >= 20),
       routines: c.routines ?? "",
+      dream: c.dream ?? null,
     };
+    // Bölüm (italik ara sayfa) sayısı: tanışma + her anı + rutin + hayal.
+    const sectionCount =
+      1 +
+      material.memories.length +
+      (material.routines.trim() ? 1 : 0) +
+      (material.dream?.description?.trim() ? 1 : 0);
+    // Kademe = toplam İÇ sayfa; ara sayfalar da sayfa sayılır.
+    const targetImages = Math.max(3, tierPages - sectionCount);
+    log(
+      dir,
+      `Üretim başladı — ${title} (çift anı kitabı, ${tierPages} sayfa = ${sectionCount} ara + ${targetImages} görsel)`
+    );
 
-    // Önizleme varsa: kapak + ilk anı sayfası oradan (sahne JSON'u
-    // teaser.scene1.pageText içinde saklanıyor — bkz. cift-onizleme).
+    // Önizleme yeniden kullanımı.
     const teaser = order.teaserId ? getTeaser(order.teaserId) : null;
     let fixedFirst: MemoryScene | undefined;
     if (teaser?.scene1 && teaser.coverRaw && teaser.page1Raw) {
       try {
         fixedFirst = JSON.parse(teaser.scene1.pageText) as MemoryScene;
-        log(dir, "Önizleme bulundu: kapak + ilk anı sayfası oradan kullanılacak.");
+        log(dir, "Önizleme bulundu: kapak + ilk sahne oradan kullanılacak.");
       } catch {
         fixedFirst = undefined;
       }
     }
 
-    log(dir, `Malzeme ${targetCount} sahneye bölünüyor...`);
-    const scenes = await writeCoupleScenes(input, material, targetCount, fixedFirst);
+    log(dir, `Kitap planı hazırlanıyor (${targetImages} sahne)...`);
+    let plan = await writeCouplePlan(input, material, targetImages, fixedFirst);
+    log(dir, "Editör geçişi: plan kaynakla karşılaştırılıyor...");
+    plan = await reviewCouplePlan(input, material, plan);
     fs.writeFileSync(
-      path.join(dir, "sahneler.json"),
-      JSON.stringify({ title, scenes }, null, 2),
+      path.join(dir, "plan.json"),
+      JSON.stringify({ title, plan }, null, 2),
       "utf8"
     );
 
+    let cover: Buffer;
     if (fixedFirst && teaser?.coverRaw) {
-      fs.writeFileSync(path.join(dir, "00-kapak.jpg"), dataUrlToBuffer(teaser.coverRaw));
+      cover = dataUrlToBuffer(teaser.coverRaw);
       log(dir, "Kapak önizlemeden alındı.");
     } else {
       log(dir, "Kapak üretiliyor...");
-      fs.writeFileSync(path.join(dir, "00-kapak.jpg"), await generateCoupleCover(input));
+      cover = await generateCoupleCover(input);
       log(dir, "Kapak hazır.");
     }
+    fs.writeFileSync(path.join(dir, "00-kapak.jpg"), cover);
 
-    for (let i = 0; i < scenes.length; i++) {
-      const file = `${String(i + 1).padStart(2, "0")}-ani.jpg`;
-      if (i === 0 && fixedFirst && teaser?.page1Raw) {
-        fs.writeFileSync(path.join(dir, file), dataUrlToBuffer(teaser.page1Raw));
-        log(dir, "Anı 1 görseli önizlemeden alındı.");
-        continue;
+    // Sayfa sırası: her bölüm = intro (ara sayfa) + sahneler.
+    const pdfPages: Buffer[] = [cover];
+    const htmlPages: { file: string; kind: "ara" | "ani" }[] = [];
+    let pageNo = 0;
+    let sceneNo = 0;
+    const totalScenes = plan.sections.reduce((n, s) => n + s.scenes.length, 0);
+
+    for (const section of plan.sections) {
+      pageNo++;
+      const introFile = `${String(pageNo).padStart(2, "0")}-ara.jpg`;
+      const introImg = await renderIntroPage(section.intro);
+      fs.writeFileSync(path.join(dir, introFile), introImg);
+      pdfPages.push(introImg);
+      htmlPages.push({ file: introFile, kind: "ara" });
+
+      for (const scene of section.scenes) {
+        pageNo++;
+        sceneNo++;
+        const file = `${String(pageNo).padStart(2, "0")}-ani.jpg`;
+        let img: Buffer;
+        if (fixedFirst && scene === fixedFirst && teaser?.page1Raw) {
+          img = dataUrlToBuffer(teaser.page1Raw);
+          log(dir, "İlk sahne görseli önizlemeden alındı.");
+        } else {
+          log(dir, `Sahne ${sceneNo}/${totalScenes} üretiliyor (${section.kind}: ${scene.title})...`);
+          const raw = await generateCoupleScene(input, scene, {
+            agedYears: section.kind === "hayal" ? material.dream?.years : null,
+          });
+          img = await overlayBubbles(raw, sceneBubbles(scene));
+        }
+        fs.writeFileSync(path.join(dir, file), img);
+        pdfPages.push(img);
+        htmlPages.push({ file, kind: "ani" });
       }
-      log(dir, `Anı ${i + 1}/${scenes.length} görseli üretiliyor...`);
-      const raw = await generateCoupleScene(input, scenes[i]);
-      const bubbled = await overlayBubbles(raw, sceneBubbles(scenes[i]));
-      fs.writeFileSync(path.join(dir, file), bubbled);
     }
-    log(dir, "Tüm görseller hazır. kitap.html yazılıyor...");
 
-    const pages = scenes
+    log(dir, "Tüm sayfalar hazır. kitap.html + kitap.pdf yazılıyor...");
+    await writePdf(dir, pdfPages);
+
+    const pagesHtml = htmlPages
       .map(
-        (s, i) => `
+        (p, i) => `
     <div class="page">
-      <img src="${String(i + 1).padStart(2, "0")}-ani.jpg">
+      <img src="${p.file}">
       <div class="pageno">Sayfa ${i + 1}</div>
     </div>`
       )
@@ -258,13 +326,13 @@ async function runCoupleBook(
   .note{color:#8a8496;font-family:sans-serif;font-size:14px;max-width:640px;text-align:center}
 </style></head><body>
 <h1>${title} 💞</h1>
-<p class="note">Sipariş ${shortId} · ${scenes.length} anı sayfası · çift anı kitabı${fixedFirst ? " · kapak+1. anı önizlemeden" : ""}</p>
+<p class="note">Sipariş ${shortId} · ${htmlPages.length} iç sayfa (${totalScenes} sahne + ${plan.sections.length} ara sayfa)${fixedFirst ? " · kapak+ilk sahne önizlemeden" : ""}</p>
 <div class="cover"><img src="00-kapak.jpg"></div>
-${pages}
+${pagesHtml}
 </body></html>`,
       "utf8"
     );
-    log(dir, "✅ BİTTİ → kitap.html");
+    log(dir, "✅ BİTTİ → kitap.html + kitap.pdf");
   } catch (err) {
     log(dir, `❌ HATA: ${err instanceof Error ? err.message : String(err)}`);
     console.error(`Çift kitabı üretimi başarısız (${shortId}):`, err);

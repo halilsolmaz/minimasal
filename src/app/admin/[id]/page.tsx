@@ -86,6 +86,19 @@ export default async function AdminOrderPage({
                       )?.label ?? "—"
                     }
                   />
+                  <Row label="Şehir" value={order.couple.city ?? "—"} />
+                  <Row
+                    label="Yaşlar"
+                    value={
+                      order.couple.age1 || order.couple.age2
+                        ? `${order.couple.age1 || "?"} · ${order.couple.age2 || "?"}`
+                        : "—"
+                    }
+                  />
+                  <Row
+                    label="Değişmeyen detaylar"
+                    value={order.couple.fixedDetails || "—"}
+                  />
                   <Row
                     label="Evcil dostlar"
                     value={
@@ -133,6 +146,17 @@ export default async function AdminOrderPage({
                       </div>
                       <p className="mt-1 text-ink whitespace-pre-wrap">
                         {order.couple.routines}
+                      </p>
+                    </li>
+                  )}
+                  {order.couple.dream?.description?.trim() && (
+                    <li className="rounded-xl bg-cream-deep p-3">
+                      <div className="font-bold text-ink-soft text-xs uppercase">
+                        Hayal ({order.couple.dream.years} yıl sonra,{" "}
+                        {order.couple.dream.place})
+                      </div>
+                      <p className="mt-1 text-ink whitespace-pre-wrap">
+                        {order.couple.dream.description}
                       </p>
                     </li>
                   )}
