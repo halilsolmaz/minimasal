@@ -111,6 +111,10 @@ function refMapForScene(
     `Reference ${p1Range} show ${p1.name} and reference ${p2Range} show ${p2.name} — ` +
     `a real couple; keep BOTH faces clearly recognizable but stylized as warm ` +
     `illustration characters, NOT photorealistic. `;
+  // NOT: Ayırt edici özellikleri BURADA her sahneye dökmüyoruz — aksi halde
+  // gözlük/kolye gibi takıp çıkarılan şeyler her karede tekrarlanıp görseli
+  // bozardı. Kalıcı iz (dövme) vs aksesuar (gözlük) ayrımını ve doğal dağılımı
+  // planlama LLM'i yapar; her sahnenin sceneBrief'ine uygun düştüğü kadar girer.
 
   const together = input.togetherPhotoDatas ?? [];
   if (together.length > 0) {
@@ -192,6 +196,14 @@ const SEGMENT_SYSTEM_PROMPT =
   "(≤60 karakter, klişe değil); diğerlerinde bubbles boş dizi.\n" +
   "9) İtalik ara sayfa cümleleri (intro): kısa (≤100 karakter), sıcak, romantik ama " +
   "klişeye kaçmayan TÜRKÇE cümleler; bölümün içeriğine özel olsun.\n" +
+  "10) GÖRÜNÜM ve NESNELERİ doğru dağıt (rastgelelik önemli):\n" +
+  "   - KALICI izler (dövme, yara izi, doğum lekesi, kalıcı piercing): o vücut bölgesi " +
+  "göründüğü HER sahnenin sceneBrief'ine yaz (örn. açık koldaki dövme, kolun göründüğü her sahnede).\n" +
+  "   - TAKIP ÇIKARILAN aksesuarlar (gözlük, kolye, saat, şapka) ve gündelik nesneler HER sahnede " +
+  "TEKRARLANMAZ — bazı sahnede olsun bazısında olmasın, hikayeye doğal dağılsın. Aynı aksesuarı her " +
+  "karede tekrarlamak görseli mahveder.\n" +
+  "   - Bu 'doğal dağıt, her kareye koyma' ilkesi tüm nesneler/kıyafetler için geçerli. TEK istisna: " +
+  "'değişmeyen detaylar' (araba/ev) — onlar bilerek her sahnede AYNI kalır.\n" +
   "İstenen JSON'un dışına asla çıkma.";
 
 function materialBlock(material: CoupleMaterial): string {
@@ -426,6 +438,10 @@ const REVIEW_SYSTEM_PROMPT =
   "5) 'bunu gösterme' talimatları ihlal edilmiş mi? Edildiyse o içeriği tamamen çıkar.\n" +
   "6) Mekân adları/ayırt edici detaylar (tabela vb.) tarifte var mı? Yoksa ekle.\n" +
   "7) Kıyafet/ayakkabı mekâna uygun mu? (kafede çıplak ayak olmaz)\n" +
+  "8) Kalıcı izler (dövme vb.) o bölgenin göründüğü sahnelerde var mı? Yoksa ekle. " +
+  "Takıp çıkarılan aksesuarlar (gözlük/kolye/saat/şapka) HEMEN HEMEN HER sahnede tekrar mı " +
+  "ediyor? Öyleyse bir kısmından çıkarıp hikayeye doğal dağıt (bazı sahnede olsun, bazısında " +
+  "olmasın). 'Değişmeyen detaylar' (araba/ev) bunun istisnası, onlara dokunma.\n" +
   "Sahne SAYISINI ve bölüm yapısını DEĞİŞTİRME — sadece içerikleri düzelt. " +
   "İstenen JSON'un dışına asla çıkma.";
 
