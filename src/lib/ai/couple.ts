@@ -9,8 +9,11 @@
 // - Fiziksel temas anları kompozisyonun MERKEZİ olur.
 // - Lakaplar kronolojiye uyar: tanışma/flört sahnelerinde KULLANILMAZ;
 //   verilmemiş lakap uydurulamaz.
-// - Evcil hayvanlar SADECE geçtiği sahnede; sahnede yoksa görsele
-//   "hayvan yok" talimatı gider.
+// - Evcil hayvanlar TÜR + MEKÂNA göre doğal yerleştirilir: kedi/kuş sadece
+//   iç mekânda ve ara sıra (her ev sahnesinde değil); köpek dışarıda da
+//   olabilir. Zorlama YOK, "kesinlikle hayvan yok" negatif komutu da YOK
+//   (dostun yokluğu doğal olur; referans fotosu eklenmez, model kendiliğinden
+//   çizmez). Kararı planlama LLM'i verir, üretim değil.
 // - Mekân adları ve ayırt edici detaylar tarife AYNEN yazılır (tabela dahil).
 // - Coğrafya: şehir/Türkiye her tarife işlenir (yabancı ülke görünümü yasak).
 // - Kıyafet/ayakkabı mekâna uygun olur.
@@ -131,9 +134,10 @@ function refMapForScene(
       description += `Include their ${en} named ${pet.name} (no reference photo — draw a cute one, consistent across pages). `;
     }
   }
-  if (allPets.length > 0 && present.length === 0) {
-    description += `Do NOT include any pets or animals in this scene. `;
-  }
+  // Sahnede dost yoksa NEGATİF komut vermiyoruz ("kesinlikle hayvan yok"
+  // demek yanlış — dostun yokluğu doğal olmalı, garanti değil). Referans
+  // fotoğrafı eklenmediği için model dostu kendiliğinden eklemez; sahnede
+  // dostun olup olmayacağına planlama aşamasında (tür + mekân) karar verilir.
   return { refs, description };
 }
 
@@ -171,8 +175,14 @@ const SEGMENT_SYSTEM_PROMPT =
   "5) Lakaplar/hitaplar KRONOLOJİYE uyar: tanışma ve flört dönemi sahnelerinde lakap " +
   "KULLANILMAZ (isim ya da hitapsız); lakaplar ancak ilişkinin oturduğu anı/rutin/hayal " +
   "sahnelerinde. Sana verilmeyen hiçbir lakabı uydurma.\n" +
-  "6) Evcil dostlar SADECE anlatımda geçtiği sahnelerin 'pets' listesine yazılır; " +
-  "diğer sahnelerde pets boş dizi olur. Kafede, sahilde, arabada durduk yere hayvan olmaz.\n" +
+  "6) Evcil dostları sahnelere DOĞAL yerleştir, ne zorla sok ne de 'kesinlikle yok' de:\n" +
+  "   - Anlatımda bir sahnede AÇIKÇA geçiyorsa o sahnenin 'pets' listesine mutlaka yaz.\n" +
+  "   - KEDİ ve KUŞ eve bağlıdır: yalnız EV/İÇ MEKÂN sahnelerinde görünebilir, o da HER ev " +
+  "sahnesinde değil ARA SIRA (bazı ev sahnesinde olsun, bazısında olmasın — doğal ve rastgele). " +
+  "Kafe, sahil, sokak, yol, gezi gibi DIŞ mekân sahnelerine kedi/kuş YAZMA.\n" +
+  "   - KÖPEK hem evde hem dışarıda (yürüyüş, sahil, araba yolculuğu) doğal olabilir; uygun " +
+  "düştüğü sahnelere yaz, yine her sahneye değil.\n" +
+  "   - Doğal görünmeyen hiçbir sahneye dost sokma; o sahnelerde 'pets' boş dizi olur.\n" +
   "7) Özel mekân adlarını ve ayırt edici özellikleri sceneBrief'e AYNEN İngilizce tarifle " +
   "yaz — tabela metni dahil (örn. a café sign reading \"Gardiyanbucks\", a parody of Starbucks). " +
   "Türkiye'ye özgü öğeleri koru (pide fırını, ince belli çay bardağı, tramvay...).\n" +
@@ -396,7 +406,10 @@ const REVIEW_SYSTEM_PROMPT =
   "yanıtlarsın. Kontrol listesi:\n" +
   "1) Mekân/olay/yön anlatımla birebir mi? (kim kimi nerede gördü, kim ne yaptı)\n" +
   "2) Tanışma/flört sahnelerinde lakap kullanılmış mı? Kullanıldıysa kaldır/isimle değiştir.\n" +
-  "3) Sahnenin 'pets' listesi anlatımla uyumlu mu? Anlatımda geçmeyen sahnelerden hayvanları çıkar.\n" +
+  "3) Evcil dostlar TÜR+MEKÂNA göre doğal mı? DIŞ mekân sahnelerinde (kafe/sahil/yol/gezi) " +
+  "kedi/kuş varsa ÇIKAR. Köpek dışarıda kalabilir. Ev/iç mekân sahnelerinde kedi/kuş DOĞAL, " +
+  "silme (her ev sahnesinde olmak zorunda değil ama bazılarında olması normaldir). Anlatımda " +
+  "açıkça geçen bir dost o sahneden çıkarılmaz.\n" +
   "4) Fiziksel temas anlatıldıysa sceneBrief'te odak noktası olarak geçiyor mu? Değilse ekle.\n" +
   "5) 'bunu gösterme' talimatları ihlal edilmiş mi? Edildiyse o içeriği tamamen çıkar.\n" +
   "6) Mekân adları/ayırt edici detaylar (tabela vb.) tarifte var mı? Yoksa ekle.\n" +
