@@ -16,9 +16,9 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} — Çocuğunuza özel masal kitabı`,
+  title: `${BRAND.name} — Kişiye özel masal ve anı kitapları`,
   description:
-    "Çocuğunuzun fotoğrafından, ona özel kahramanı olduğu resimli bir masal kitabı hazırlıyoruz. Siz seçin, biz çizelim ve kapınıza gönderelim.",
+    "Fotoğraflarınızdan kişiye özel, resimli hediye kitapları hazırlıyoruz: çocuğunuz için kahramanı olduğu bir masal, ikiniz için tanışmanızdan bugüne bir anı kitabı. Siz seçin, biz çizelim ve kapınıza gönderelim.",
 };
 
 export default function RootLayout({

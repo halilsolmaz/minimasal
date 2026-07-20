@@ -3,9 +3,14 @@
 
 export const BRAND = {
   name: "MiniMasal",
+  // Çocuk masal kitabı ürününe özel başlık (ürün sayfalarında kullanılabilir).
   tagline: "Çocuğunuz kendi masalının kahramanı olsun",
   subline:
     "Fotoğrafını yükleyin, birkaç soruyu yanıtlayın; ona özel, resimli bir masal kitabı hazırlayıp kapınıza gönderelim.",
+  // Ana sayfa (iki ürün EŞİT ağırlıkta): marka düzeyinde nötr başlık.
+  homeTagline: "Sevdikleriniz kendi kitaplarının kahramanı olsun",
+  homeSubline:
+    "Fotoğraflarınızdan yola çıkıp kişiye özel, resimli hediye kitapları hazırlar, basar ve kapınıza göndeririz — çocuğunuz için bir masal, ikiniz için bir anı kitabı.",
   email: "merhaba@minimasal.com",
 } as const;
 

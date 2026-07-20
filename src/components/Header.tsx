@@ -13,28 +13,25 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-7 text-sm font-semibold text-ink-soft">
+          <Link href="/olustur" className="hover:text-primary transition-colors">
+            Çocuk Masalı 🧒
+          </Link>
+          <Link href="/cift" className="hover:text-primary transition-colors">
+            Çift Anı Kitabı 💞
+          </Link>
           <a href="/#nasil" className="hover:text-primary transition-colors">
             Nasıl çalışır?
           </a>
-          <a href="/#temalar" className="hover:text-primary transition-colors">
-            Temalar
-          </a>
-          <a href="/#fiyatlar" className="hover:text-primary transition-colors">
-            Fiyatlar
-          </a>
-          <Link href="/cift" className="hover:text-primary transition-colors">
-            Çiftler için 💞
-          </Link>
           <Link href="/sss" className="hover:text-primary transition-colors">
             SSS
           </Link>
         </nav>
 
         <Link
-          href="/olustur"
+          href="/#urunler"
           className="rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[var(--shadow-soft)] hover:bg-primary-dark transition-colors"
         >
-          Kitabını Oluştur
+          Başla
         </Link>
       </div>
     </header>
