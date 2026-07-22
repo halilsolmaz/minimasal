@@ -10,6 +10,7 @@ import { getTheme } from "@/lib/themes";
 import {
   getRelation,
   MAX_COMPANIONS,
+  MIN_CHILD_PHOTOS,
   MAX_CHILD_PHOTOS,
   MAX_COMPANION_PHOTOS,
 } from "@/lib/characters";
@@ -46,11 +47,13 @@ function validationError(body: PreviewRequest): string | null {
     !p.startsWith("data:image/") ||
     p.length > MAX_PHOTO_DATA_CHARS;
 
-  if (body.photoDatas) {
-    if (!Array.isArray(body.photoDatas) || body.photoDatas.length > MAX_CHILD_PHOTOS)
-      return `En fazla ${MAX_CHILD_PHOTOS} fotoğraf yüklenebilir.`;
-    if (body.photoDatas.some(badPhoto)) return "Fotoğraf verisi geçersiz.";
-  }
+  if (
+    !Array.isArray(body.photoDatas) ||
+    body.photoDatas.length < MIN_CHILD_PHOTOS ||
+    body.photoDatas.length > MAX_CHILD_PHOTOS
+  )
+    return `Çocuğun ${MIN_CHILD_PHOTOS}-${MAX_CHILD_PHOTOS} fotoğrafını ekleyin.`;
+  if (body.photoDatas.some(badPhoto)) return "Fotoğraf verisi geçersiz.";
 
   if (body.companions) {
     if (!Array.isArray(body.companions) || body.companions.length > MAX_COMPANIONS)

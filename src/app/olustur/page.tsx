@@ -14,6 +14,7 @@ import {
 import {
   RELATIONS,
   MAX_COMPANIONS,
+  MIN_CHILD_PHOTOS,
   MAX_CHILD_PHOTOS,
   MAX_COMPANION_PHOTOS,
   getRelation,
@@ -87,7 +88,7 @@ export default function CreatePage() {
   const canNext = useMemo(() => {
     switch (step) {
       case 0:
-        return data.photoUrls.length >= 1;
+        return data.photoUrls.length >= MIN_CHILD_PHOTOS;
       case 1:
         return data.childName.trim().length >= 2;
       case 2:
@@ -196,7 +197,7 @@ export default function CreatePage() {
           {step === 0 && (
             <StepShell
               title="Çocuğunuzun fotoğraflarını yükleyin"
-              subtitle={`Yüzü net görünen, tek kişilik fotoğraflar en iyisidir. 1 fotoğraf yeterli; farklı açılardan ${MAX_CHILD_PHOTOS} fotoğrafa kadar eklerseniz benzerlik artar.`}
+              subtitle={`Yüzü net görünen, tek kişilik fotoğraflar en iyisidir. Benzerliğin iyi olması için en az ${MIN_CHILD_PHOTOS}, farklı açılardan ${MAX_CHILD_PHOTOS} fotoğrafa kadar ekleyin.`}
             >
               <PhotoList
                 photos={data.photoUrls}
@@ -206,6 +207,17 @@ export default function CreatePage() {
                   update({ photoUrls: data.photoUrls.filter((_, idx) => idx !== i) })
                 }
               />
+              <p
+                className={`mt-3 text-sm font-semibold ${
+                  data.photoUrls.length >= MIN_CHILD_PHOTOS
+                    ? "text-mint"
+                    : "text-ink-soft"
+                }`}
+              >
+                {data.photoUrls.length >= MIN_CHILD_PHOTOS
+                  ? `✓ ${data.photoUrls.length} fotoğraf eklendi`
+                  : `En az ${MIN_CHILD_PHOTOS} fotoğraf ekleyin (${data.photoUrls.length}/${MIN_CHILD_PHOTOS})`}
+              </p>
               {photoError && (
                 <p className="mt-3 text-sm font-semibold text-red-600">
                   ⚠️ {photoError}
@@ -644,7 +656,7 @@ function CompanionsStep({
             <p className="font-bold text-ink mb-2">
               Fotoğrafı{" "}
               <span className="font-normal text-ink-soft">
-                (1 yeterli, {MAX_COMPANION_PHOTOS} olursa benzerlik artar)
+                (en az 1, {MAX_COMPANION_PHOTOS} fotoğrafa kadar — benzerlik artar)
               </span>
             </p>
             <PhotoList

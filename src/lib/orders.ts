@@ -18,6 +18,7 @@ import {
 import {
   getRelation,
   MAX_COMPANIONS,
+  MIN_CHILD_PHOTOS,
   MAX_CHILD_PHOTOS,
   MAX_COMPANION_PHOTOS,
 } from "./characters";
@@ -320,14 +321,15 @@ function validate(input: NewOrderInput) {
     }
   }
 
-  if (input.photoDatas) {
-    if (
-      !Array.isArray(input.photoDatas) ||
-      input.photoDatas.length > MAX_CHILD_PHOTOS ||
-      input.photoDatas.some(badPhoto)
-    ) {
-      throw new OrderValidationError("Fotoğraf verisi geçersiz.");
-    }
+  if (
+    !Array.isArray(input.photoDatas) ||
+    input.photoDatas.length < MIN_CHILD_PHOTOS ||
+    input.photoDatas.length > MAX_CHILD_PHOTOS ||
+    input.photoDatas.some(badPhoto)
+  ) {
+    throw new OrderValidationError(
+      `Çocuğun ${MIN_CHILD_PHOTOS}-${MAX_CHILD_PHOTOS} fotoğrafı gerekli.`
+    );
   }
 
   if (input.companions) {
