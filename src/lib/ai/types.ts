@@ -56,6 +56,12 @@ export type WriteStoryInput = StoryInput & {
 export type StoryScene = {
   pageText: string; // sayfaya basılacak masal metni (yaşa göre 4-8 cümle)
   imageBrief: string; // sahnenin görsel tarifi (İngilizce, prompt'a girer)
+  // Bu sahnede görünen yan karakterlerin NUMARALARI (StoryInput.companions
+  // sırasına göre 1-tabanlı). Yan karakterler her sahnede zorla görünmez;
+  // hikaye LLM'i doğal düşen sahnelere dağıtır. Görsel üretiminde yalnız bu
+  // sahnedeki karakterlerin referans fotoğrafları gönderilir. undefined =
+  // eski kayıt (hepsi gönderilir, geriye dönük uyum).
+  sceneCompanions?: number[];
 };
 
 export type WriteStoryResult = {

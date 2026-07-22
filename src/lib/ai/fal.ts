@@ -237,22 +237,37 @@ function storyPrompt(input: WriteStoryInput): string {
   const favorite = input.favorite?.trim()
     ? ` Çocuğun sevdiği şey: ${input.favorite.trim()} — hikayeye zorlamadan küçük bir dokunuş olarak yedir.`
     : "";
+  const hasCompanions = (input.companions ?? []).length > 0;
   const companionList = (input.companions ?? [])
-    .map((c) => {
+    .map((c, i) => {
       const rel = getRelation(c.relationId);
       const label = rel?.label ?? c.relationId;
-      return c.name?.trim() ? `${label} (adı: ${c.name.trim()})` : label;
+      const named = c.name?.trim() ? ` (adı: ${c.name.trim()})` : "";
+      return `[${i + 1}] ${label}${named}`;
     })
     .join(", ");
-  const companions = companionList
-    ? ` Hikayede çocuğa eşlik eden yan karakterler: ${companionList}. Onları hikayeye doğal biçimde kat — her sahnede olmak zorunda değiller ama hikayenin parçası olsunlar. imageBrief'lerde hangi karakterlerin sahnede olduğunu açıkça belirt (örn. 'the child and her mother').`
+  const companions = hasCompanions
+    ? ` Çocuğa eşlik edebilecek yan karakterler (numaralı): ${companionList}. ` +
+      `Onları DOĞAL kat — HER sahnede görünmek ZORUNDA değiller, sadece hikayenin ` +
+      `o anına uygun düştükleri sahnelerde (robotik biçimde her kareye koyma). Her ` +
+      `sahnede "sceneCompanions" alanına O SAHNEDE görünen yan karakterlerin ` +
+      `NUMARALARINI yaz (kimse yoksa boş dizi []). imageBrief'te de yalnız o sahnedeki ` +
+      `karakterleri açıkça belirt (örn. 'the child and her mother').`
     : "";
   const hero = `Kahraman: ${input.childName}, ${input.age} yaşında ${input.gender === "kiz" ? "kız" : "erkek"} çocuk. Tema: ${theme?.title ?? input.themeId}. Seçimler: ${choices}.${favorite}${companions}`;
 
+  const companionField = hasCompanions
+    ? `\n- "sceneCompanions": bu sahnede görünen yan karakter NUMARALARI dizisi ` +
+      `(yukarıdaki listeden; kimse yoksa [])`
+    : "";
   const fieldRules =
     `- "pageText": sayfaya basılacak masal metni (yukarıdaki yaş kuralına uygun cümle sayısı)\n` +
     `- "imageBrief": o sahnenin İngilizce görsel tarifi (çocuk ne yapıyor, nerede, hangi duygu, ` +
-    `hangi detaylar; 1-2 cümle; 'the child' de, isim yazma)`;
+    `hangi detaylar; 1-2 cümle; 'the child' de, isim yazma)` +
+    companionField;
+  const sceneShape = hasCompanions
+    ? `{"pageText": "...", "imageBrief": "...", "sceneCompanions": [1, 2]}`
+    : `{"pageText": "...", "imageBrief": "..."}`;
 
   if (input.scope === "teaser") {
     // Önizleme: başlık + 1. sahne (Tanışma). Sipariş gelirse bu sahne
@@ -262,7 +277,7 @@ function storyPrompt(input: WriteStoryInput): string {
       `Bu masal için: (1) etkileyici, kısa bir kitap başlığı üret (en fazla 5 kelime, ` +
       `çocuğun adı geçsin), (2) masalın 1. sahnesini yaz (Tanışma: çocuğu ve dünyasını ` +
       `tanıtan, tek başına da anlamlı bir açılış sahnesi).\n\nSahne alanları:\n${fieldRules}\n\n` +
-      `SADECE şu JSON'u döndür: {"title": "...", "scene1": {"pageText": "...", "imageBrief": "..."}}`
+      `SADECE şu JSON'u döndür: {"title": "...", "scene1": ${sceneShape}}`
     );
   }
 
@@ -280,8 +295,8 @@ function storyPrompt(input: WriteStoryInput): string {
     `${hero}\n\n${ageStyle(input.age)}\n\n` +
     `${beats.length} sahnelik bir masal yaz. Sahne iskeleti SABİT, sırayı ve işlevi değiştirme:\n` +
     beats.map((b, i) => `${i + 1}. ${b}`).join("\n") +
-    `\n\nHer sahne için iki alan üret:\n${fieldRules}${fixedFirst}\n\n` +
-    `SADECE şu JSON'u döndür: {"title": "...", "scenes": [{"pageText": "...", "imageBrief": "..."}, ...]}`
+    `\n\nHer sahne için alanlar:\n${fieldRules}${fixedFirst}\n\n` +
+    `SADECE şu JSON'u döndür: {"title": "...", "scenes": [${sceneShape}, ...]}`
   );
 }
 
@@ -356,7 +371,7 @@ export const falProvider: AiProvider = {
       if (input.scope === "teaser") {
         const parsed = extractJson<{
           title: string;
-          scene1: { pageText: string; imageBrief: string };
+          scene1: { pageText: string; imageBrief: string; sceneCompanions?: number[] };
         }>(output);
         if (!parsed.title?.trim() || !parsed.scene1?.pageText || !parsed.scene1?.imageBrief) {
           throw new Error("Teaser çıktısı eksik (başlık veya 1. sahne yok).");
@@ -369,7 +384,7 @@ export const falProvider: AiProvider = {
       }
       const parsed = extractJson<{
         title: string;
-        scenes: { pageText: string; imageBrief: string }[];
+        scenes: { pageText: string; imageBrief: string; sceneCompanions?: number[] }[];
       }>(output);
       const expected = skeletonFor(input.scenes ?? 5).length;
       if (!parsed.title?.trim() || parsed.scenes?.length !== expected) {

@@ -123,9 +123,16 @@ export async function runBookGeneration(orderId: string): Promise<void> {
         log(dir, "Sahne 1 görseli önizlemeden alındı.");
       } else {
         log(dir, `Sahne ${i + 1}/${story.scenes.length} görseli üretiliyor...`);
+        // Sadece bu sahnede görünen yan karakterlerin referansını gönder
+        // (sceneCompanions 1-tabanlı; undefined = eski kayıt → hepsi).
+        const sc = story.scenes[i].sceneCompanions;
+        const sceneCompanions = sc
+          ? storyInput.companions?.filter((_, idx) => sc.includes(idx + 1))
+          : storyInput.companions;
         img = (
           await generateImage({
             ...storyInput,
+            companions: sceneCompanions,
             kind: "page",
             title: story.title,
             sceneBrief: story.scenes[i].imageBrief,

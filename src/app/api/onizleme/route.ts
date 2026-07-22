@@ -104,9 +104,16 @@ export async function POST(request: Request) {
       kind: "cover",
       title: story.title,
     });
+    // 1. sahne görselinde yalnız o sahnede görünen yan karakterlerin
+    // referansını gönder (sceneCompanions 1-tabanlı; undefined = hepsi).
+    const sc = scene1.sceneCompanions;
+    const scene1Companions = sc
+      ? body.companions?.filter((_, idx) => sc.includes(idx + 1))
+      : body.companions;
     const page1 = await generateImage({
       ...body,
       childName,
+      companions: scene1Companions,
       kind: "page",
       title: story.title,
       sceneBrief: scene1.imageBrief,
