@@ -168,21 +168,29 @@ async function callFal(prompt: string, photoDataUrls: string[]): Promise<Buffer>
 function ageStyle(age: number): string {
   if (age <= 4) {
     return (
-      "3-4 yaş için yaz: ÇOK kısa cümleler (4-6 kelime), bol tekrar ve " +
-      "ses oyunları (pat pat, vızzz gibi), sahne başına 7-8 cümle, soyut " +
-      "kavram yok, her şey somut ve görülebilir."
+      "3-4 yaş için yaz: ÇOK kısa cümleler (4-6 kelime), bol tekrar, soyut " +
+      "kavram yok, her şey somut ve görülebilir. Yansıma sözcükleri (ses " +
+      "oyunu) AZ ve YERİNDE kullan — SADECE gerçekte o sese benzeyen doğal " +
+      "örnekler (kapı 'tak tak', ayak 'pat pat', kedi 'mırr'). Zorlama/uydurma " +
+      "eşleşme YOK (ör. rüzgar 'fışşş' gibi tuhaf sesler kullanma). Sahne " +
+      "başına 7-8 cümle."
     );
   }
   if (age <= 6) {
     return (
-      "5-6 yaş için yaz: basit ama akıcı cümleler, hafif mizah, sahne " +
-      "başına 8-9 cümle, basit duygular (merak, heyecan, sevinç)."
+      "5-6 yaş için yaz: basit ama akıcı cümleler, hafif mizah, basit duygular " +
+      "(merak, heyecan, sevinç, üzüntü). Yansıma sözcük çok az; kullanılırsa " +
+      "gerçekçi olsun. Kahraman zorlukla karşılaşsın ve çözümü tek adımda " +
+      "değil, deneyerek/çabalayarak bulsun. Sahne başına 8-9 cümle."
     );
   }
   return (
-    "7-9 yaş için yaz: daha zengin kelime dağarcığı, sahne başına 9-10 " +
-    "cümle, hafif gerilim ve kahramanın iç sesi ('Acaba başarabilir " +
-    "miyim?'), sonda küçük ama vaaz vermeyen bir ders."
+    "7-9 yaş için yaz: zengin kelime dağarcığı, gerçek bir iç ses ('Acaba " +
+    "başarabilir miyim?'), hafif gerilim. Yansıma/ses oyunu KULLANMA (bu yaş " +
+    "için çocukça kaçar). Daha DİDAKTİK ama vaaz vermeyen ol: kahraman her " +
+    "şeyi tek başına ve kolayca BAŞARMASIN — önce zorlanır, belki bir kez " +
+    "başarısız olur, pes etmeyip yeniden dener, gerekirse yardım ister ve bir " +
+    "şey öğrenir. Sahne başına 9-10 cümle."
   );
 }
 
@@ -209,6 +217,12 @@ const STORY_SYSTEM_PROMPT =
   "kötü karakter ve tehlike hissi YOK; kahraman kimseyi yenmez, birine " +
   "yardım eder. Sıcak, ritmik, sesli okumaya uygun masal dili kullan " +
   "('Bir varmış bir yokmuş' tadında). Çocuğun adını sık kullan. " +
+  "PEDAGOJİ: kahraman zorluğu sihirle ya da tek hamlede çözmez; çaba " +
+  "gösterir, gerekince dostlarından yardım alır, küçük bir denemede takılıp " +
+  "yeniden dener ve bir şey öğrenir (yaş büyüdükçe bu daha belirgin). " +
+  "TUTARLILIK: sihirli yaratık ve önemli nesnelerin görünümünü (renk, boyut) " +
+  "hem pageText'te hem TÜM imageBrief'lerde AYNI tut — bir sahnede 'küçük " +
+  "pembe', başka sahnede 'kocaman mor' olamaz. " +
   "İstenen JSON formatının DIŞINA asla çıkma, açıklama ekleme.";
 
 function storyPrompt(input: WriteStoryInput): string {
