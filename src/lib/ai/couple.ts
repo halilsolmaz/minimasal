@@ -253,6 +253,12 @@ const SEGMENT_SYSTEM_PROMPT =
   "KESİN KURALLAR:\n" +
   "1) Mekân ve olay akışı anlatımdakiyle BİREBİR aynı olmalı: kim, kimi, nerede, " +
   "nasıl gördü/yaptı — asla değiştirme, ters çevirme, uydurma.\n" +
+  "   - SPESİFİK DETAY UYDURMA. Anlatımda olmayan bir eylem, nesne ya da atmosfer sıfatı " +
+  "ekleme. YANLIŞ örnekler (gerçek testten): kullanıcı 'bir arkadaşıyla 1 saat çalışması " +
+  "gerekiyordu' demişken 'focused on a video call' yazmak; kullanıcı pide salonunun nasıl " +
+  "bir yer olduğunu hiç söylememişken 'a rustic restaurant' diye dekor uydurmak. Gerçek bir " +
+  "mekân/olay hakkında uydurduğun detay gerçeğiyle çelişir. Anlatımda yoksa NÖTR bırak; " +
+  "sahnenin resmedilebilmesi için gereken en az bilgiyle yetin.\n" +
   "2) Kullanıcı bir detay için 'bunu gösterme' benzeri talimat verdiyse o bilgi " +
   "hiçbir sahnede, başlıkta, cümlede geçemez.\n" +
   "3) Mahrem/cinsel anları ASLA sahneye çevirme ve ima etme; o günün resmedilebilir " +
@@ -322,6 +328,21 @@ const SEGMENT_SYSTEM_PROMPT =
   "üç kere tekrarlama.\n" +
   "   - Kıyafet konusunda kural 12 geçerli (uydurma), ama anlatımda kıyafet geçiyorsa o bölümün " +
   "TÜM sahnelerinde aynı cümleyle tekrarla — aynı gece içinde kıyafet değişemez.\n" +
+  "14) HANGİ ANI SAHNE YAPACAĞINI İYİ SEÇ (kurucu geri bildirimi 2026-08-03). Aynı malzemeden " +
+  "farklı sahneler çıkarılabilir; sen anlatımın EN CANLI, EN AKILDA KALICI anını seç:\n" +
+  "   - ETKİLEŞİM > DURAĞAN KURULUM. İkisi arasında bir şey OLUYORSA o anı çiz; sahneyi " +
+  "kuran arka plan anını değil. YANLIŞ örnek (gerçek testten): kullanıcı 'ben yatak odasında " +
+  "uyuyakaldım, sonra bana ssst diye seslendi ve uyandım' demiş; model 'Buse masada çalışıyor' " +
+  "sahnesini seçmiş ve uyandırma anı tamamen kaybolmuş. DOĞRUSU: Buse'nin eğilip onu " +
+  "uyandırdığı an — İKİSİ DE karede.\n" +
+  "   - SPESİFİK > GENEL. Anlatımda somut, resmedilebilir bir eylem varsa onu kullan; o kişiyi " +
+  "ya da dostu dekor gibi arka plana koyma. YANLIŞ örnek: kullanıcı 'Bihter'i tarakla tarar' " +
+  "demiş — bu tam bir sahne; model bunun yerine Bihter'i iki sahnede arka planda oturtmuş.\n" +
+  "   - SAHNE SAYISI YETMİYORSA ELEME SIRASI: önce FİZİKSEL YAKINLIK/DOKUNUŞ içeren anlar " +
+  "(el ele, sarılma, birinin elinin diğerinin bacağında olması), sonra spesifik detayı olan " +
+  "anlar (mekân adı, özel yemek, isimli bir alışkanlık), EN SON genel aktiviteler (televizyon " +
+  "izlemek, oyun oynamak). YANLIŞ örnek: 'elim onun bacağında olur, o da elini üstüme koyup " +
+  "okşar' anı elenip yerine FIFA sahnesi konmuş — duygusal olarak en değerli an kesilmiş.\n" +
   "İstenen JSON'un dışına asla çıkma.";
 
 function materialBlock(material: CoupleMaterial): string {
@@ -606,7 +627,14 @@ const REVIEW_SYSTEM_PROMPT =
   "tarif edilmeyen nesne kaybolur; duygu tekrar mı ediyor yoksa ilerliyor mu.\n" +
   "14) BALONCUKLAR BİLGİ UYDURMUŞ MU? Anlatımda olmayan bir tercih/duygu/görüş söyleten " +
   "baloncuğu SİL ya da anlatımdaki gerçekle değiştir. Baloncuğu söyleyen ve dinleyen kişi " +
-  "o sahnenin görselinde var mı? Yoksa baloncuğu kaldır.\n" +
+  "o sahnenin görselinde var mı? Yoksa ya sahneye o kişiyi EKLE ya da baloncuğu kaldır. " +
+  "Baloncuk anlatımdaki bir sözü aktarıyorsa kritik kelimeyi DÜŞÜRME ('soğuk demleme çayı' " +
+  "→ baloncukta sadece 'soğuk demleme' yazarsa okuyan kahve anlar).\n" +
+  "15) SAHNE SEÇİMİ ZAYIF MI? İki kişi arasında bir etkileşim anlatılmışken sahne durağan bir " +
+  "kurulum anını mı çizmiş (biri tek başına çalışıyor/oturuyor)? Öyleyse sahneyi o ETKİLEŞİM " +
+  "anına çevir ve ikisini de kareye al. Anlatımda somut resmedilebilir bir eylem varken " +
+  "(ör. kediyi taramak) kişi/dost dekor gibi arka planda mı duruyor? Öyleyse o somut eylemi " +
+  "sahneye taşı.\n" +
   "Sahne SAYISINI ve bölüm yapısını DEĞİŞTİRME — sadece içerikleri düzelt. " +
   "İstenen JSON'un dışına asla çıkma.";
 
