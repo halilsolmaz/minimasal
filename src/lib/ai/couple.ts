@@ -326,6 +326,16 @@ const SEGMENT_SYSTEM_PROMPT =
   "same night', 'still on the same beach').\n" +
   "   - DUYGU YAYI: sahneler duygusal olarak İLERLER (merak → yakınlaşma → huzur); aynı duyguyu " +
   "üç kere tekrarlama.\n" +
+  "   - TEKRAR YASAĞI (en sık düştüğün hata): AKIŞ demek AYNI KAREYİ TEKRARLAMAK DEĞİL. Aynı " +
+  "bölümün sahneleri birbirinden GÖRÜNÜR biçimde farklı olmalı. Peş peşe iki sahne aynı mekânda " +
+  "geçiyorsa şunlardan EN AZ İKİSİ değişsin: kadraj (yakın plan ↔ geniş plan), karede ne var " +
+  "(bir sahnede ikisi birden, diğerinde sadece birbirine değen eller ya da tek bir detay), " +
+  "mekânın hangi köşesi/hangi yönden bakıldığı, ne yapıldığı. GERÇEK ÖRNEK (kurucunun ilk " +
+  "demosu, 2026-07-20): üç ardışık sahne de 'çift kanepede yan yana, kediler yanlarında, salon " +
+  "genel görünüm' diye çizildi; iki sahne de 'sahilde battaniyede uzanmış, meteorlar' oldu. " +
+  "Kitap tekrara düştü ve okuyan aynı resmi tekrar görüyormuş hissine kapıldı.\n" +
+  "   - MEKÂN KİTAP BOYUNCA TEKRAR EDİYORSA (ev/salon gibi) her seferinde farklı bir köşesini, " +
+  "farklı bir açıyı ya da farklı bir eylemi göster.\n" +
   "   - Kıyafet konusunda kural 12 geçerli (uydurma), ama anlatımda kıyafet geçiyorsa o bölümün " +
   "TÜM sahnelerinde aynı cümleyle tekrarla — aynı gece içinde kıyafet değişemez.\n" +
   "14) HANGİ ANI SAHNE YAPACAĞINI İYİ SEÇ (kurucu geri bildirimi 2026-08-03). Aynı malzemeden " +
@@ -630,6 +640,11 @@ const REVIEW_SYSTEM_PROMPT =
   "o sahnenin görselinde var mı? Yoksa ya sahneye o kişiyi EKLE ya da baloncuğu kaldır. " +
   "Baloncuk anlatımdaki bir sözü aktarıyorsa kritik kelimeyi DÜŞÜRME ('soğuk demleme çayı' " +
   "→ baloncukta sadece 'soğuk demleme' yazarsa okuyan kahve anlar).\n" +
+  "16) TEKRAR VAR MI? Planı baştan sona oku: peş peşe gelen sahneler aynı kareyi mi anlatıyor " +
+  "(aynı mekân + aynı duruş + aynı kadraj)? Varsa DÜZELT — kadrajı değiştir, karede ne " +
+  "olduğunu değiştir (birinde ikisi birden, diğerinde sadece eller/bir detay), mekânın başka " +
+  "bir köşesini göster. Bu, ilk gerçek üretimin en görünür kusuruydu: üç ardışık salon sahnesi " +
+  "ve iki ardışık sahil sahnesi birbirinin aynısı çıktı.\n" +
   "15) SAHNE SEÇİMİ ZAYIF MI? İki kişi arasında bir etkileşim anlatılmışken sahne durağan bir " +
   "kurulum anını mı çizmiş (biri tek başına çalışıyor/oturuyor)? Öyleyse sahneyi o ETKİLEŞİM " +
   "anına çevir ve ikisini de kareye al. Anlatımda somut resmedilebilir bir eylem varken " +
@@ -713,9 +728,14 @@ export async function generateCoupleScene(
   }
   const { refs, description } = refMapForScene(input, scene.pets);
   const hasBubbles = (scene.bubbles?.length ?? 0) > 0;
+  // "Leave the top calm" ilk demoda LAFZEN anlaşıldı: model üstte bomboş beyaz
+  // bir şerit bıraktı, sayfanın beşte biri ölü alan oldu (2026-07-20, 06-ani.jpg).
+  // Artık "boş bırak" değil "orayı sakin BOYA" diyoruz.
   const bubbleSpace = hasBubbles
-    ? ` Leave the top ~20% of the composition visually calm (sky, wall, soft background) ` +
-      `so speech bubbles can be placed there later.`
+    ? ` Compose so that the upper ~20% of the image contains only soft, calm background ` +
+      `(sky, a plain wall, distant foliage) with no faces and no key action, leaving room ` +
+      `for speech bubbles to be added later. That area must still be FULLY PAINTED as part ` +
+      `of the illustration — do NOT leave a blank, white or empty band.`
     : "";
   const aging = opts.agedYears
     ? ` The couple is depicted about ${opts.agedYears} years OLDER than in the reference photos — ` +
