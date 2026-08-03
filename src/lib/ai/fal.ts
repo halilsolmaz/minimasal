@@ -90,7 +90,54 @@ function referenceMap(input: GenerateImageInput): {
   if ((input.companions ?? []).length > 0) {
     description += "Include the side characters in the scene together with the child. ";
   }
+  // HANGİ KAYNAK KAZANIR — bu cümle HER görsel isteğine koşulsuz girer.
+  // Hikaye yazarına "görünüm uydurma" diye kural verdik ama uyup uymadığı
+  // onun insafına kalıyor; burası LLM'e hiç güvenmeyen kat: sahne tarifinde
+  // bir renk/yaş/beden sıfatı kaçmış olsa bile ressama fotoğrafın esas
+  // olduğunu söylüyoruz (kurucu itirazı 2026-08-03: kural tek başına garanti
+  // değil).
+  description +=
+    "IMPORTANT — SOURCE OF TRUTH: how these real people and pets LOOK comes " +
+    "ONLY from the reference photos above (fur/hair/eye colour, skin tone, " +
+    "age, body size, breed, distinguishing features). If the scene description " +
+    "below states any physical attribute for them, IGNORE that attribute and " +
+    "follow the photo instead. The scene description only tells you what they " +
+    "DO, where they are and how they feel. ";
   return { refs, description };
+}
+
+/* ---------- Uydurma görünüm denetimi (ölçüm) ---------- */
+
+// Hikaye yazarının "görünüm uydurma" kuralını çiğneyip çiğnemediğini SAYAR.
+// Metni DEĞİŞTİRMEZ: kör bir metin ameliyatı ("mother bird" gibi masum
+// ifadeleri bozabilir) riskli; ihlali görünür kılmak yeterli, görsel tarafta
+// zaten fotoğrafın kazandığını söylüyoruz. Amaç: kuralın gerçekte ne sıklıkta
+// tutmadığını ölçebilmek.
+const CHARACTER_NOUNS =
+  "cat|kitten|dog|puppy|fish|bird|mother|mom|father|dad|brother|sister|sibling|" +
+  "grandmother|grandma|grandfather|grandpa|aunt|girl|boy|child";
+// Sıfat değil, dilbilgisel dolgu olan kelimeler (ihlal sayılmaz).
+const HARMLESS_MODIFIERS = new Set([
+  "own", "little", "small", "tiny", "beloved", "dear", "loyal", "curious",
+  "happy", "excited", "sleepy", "playful", "worried", "surprised", "brave",
+]);
+
+export function findInventedLooks(briefs: string[]): string[] {
+  const re = new RegExp(
+    `\\b(?:her|his|their)\\s+((?:[a-z-]+\\s+){1,3}?)(${CHARACTER_NOUNS})\\b`,
+    "gi"
+  );
+  const hits: string[] = [];
+  for (const brief of briefs) {
+    for (const m of brief.matchAll(re)) {
+      const words = m[1].trim().split(/\s+/).filter(Boolean);
+      // Duygu/boyut sıfatları serbest; renk/ırk/yaş gibi FİZİKSEL nitelemeler
+      // fotoğrafla çelişebilir — asıl aradığımız onlar.
+      const bad = words.filter((w) => !HARMLESS_MODIFIERS.has(w.toLowerCase()));
+      if (bad.length > 0) hits.push(`${m[0]} → uydurma: "${bad.join(" ")}"`);
+    }
+  }
+  return hits;
 }
 
 function coverPrompt(input: GenerateImageInput, refDescription: string): string {
@@ -556,6 +603,15 @@ export const falProvider: AiProvider = {
       //  üretildi; metnin harfi harfine aynı kalması şart.)
       if (input.fixedFirstScene) scenes[0] = input.fixedFirstScene;
       ensureEveryCompanionAppears(scenes, (input.companions ?? []).length);
+      const invented = findInventedLooks([
+        ...scenes.map((s) => s.imageBrief),
+        parsed.coverBrief ?? "",
+      ]);
+      if (invented.length > 0) {
+        // Görsel bozulmaz (istemde fotoğrafın kazandığını söylüyoruz) ama
+        // kuralın ne sıklıkta tutmadığını görmek için kayda geçir.
+        console.warn("Uydurma görünüm tespit edildi:", invented.join(" | "));
+      }
       return {
         title: (input.fixedTitle ?? fixed.title).trim(),
         scenes,
