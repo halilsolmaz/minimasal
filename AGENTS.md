@@ -253,6 +253,35 @@ eski/yeni kod karşılaştırmasıyla ölçüldü.
 **Hâlâ görsel üretimi YAPILMADI** — kurucu 2026-08-03'te "şimdilik harcama yok"
 dedi. Kadraj/ışık/kıyafet kurallarının gerçek görselde nasıl durduğu bilinmiyor.
 
+### 📌 SIRADAKİ İŞ — few-shot örnekler (kurucu onayladı, henüz yapılmadı)
+
+Kurucu 2026-08-03: *"Bu dediğin çok iyimiş. Bunu not et sonra yapalım mutlaka."*
+
+**Fikir:** İstemlere bugüne kadar hep KURAL yazdık ("kadraj belirt", "görünüm
+uydurma"), hiç ÖRNEK vermedik. Model kuralı tarif etmektense iyi bir çıktıyı
+taklit etmekte daha başarılı. İsteme 2-3 gerçek `imageBrief`/`sceneBrief`
+örneği koymak (few-shot), model eğitimine kıyasla bedava sayılır ve muhtemelen
+elimizdeki en ucuz kalite hamlesi.
+
+**Nereye:** `STORY_SYSTEM_PROMPT`/`storyPrompt` (ai/fal.ts) ve
+`SEGMENT_SYSTEM_PROMPT`/`writeCouplePlan` (ai/couple.ts).
+
+**Kritik uyarı:** örnekler GERÇEKTEN iyi olmalı — model kuralı değil örneği
+taklit eder, kötü örnek kuralı ezer.
+
+**Örnek adayları** (2026-08-03 metin testlerinin en iyi çıktıları; scratchpad
+silineceği için buraya kopyalandı — yeniden üretmek için para harcamaya gerek yok):
+
+Çocuk masalı (Defne, 3 yaş, gözlük notuyla):
+- `The child wearing glasses and her cat fly upward on the small pink dragon, rising above rooftops toward a sky filled with fluffy clouds. Golden light, sense of adventure and joy. Wide shot.`
+- `The child wearing glasses kneels beside the tiny cloud creature, comforting it gently while her cat sits nearby. Vast cloudscape stretches endlessly around them. Soft afternoon light, tender mood. Close-up.`
+- `The child wearing glasses hugs her mother and grandmother in the garden at sunset, her cat purring beside them. The small pink dragon waves goodbye from the sky. Warm evening light, loving and peaceful mood. Medium shot.`
+
+Çift kitabı (Halil & Buse — mekân adı/tabela kuralının en iyi örneği; DİKKAT:
+bu üretim kadraj kuralından ÖNCEydi, örnek olarak kullanmadan önce sonuna
+kadraj eklenmeli):
+- `Halil and Buse sitting on pear-shaped bean bag chairs in a quirky café, holding coffee cups, laughing together, a café sign reading 'Gardiyanbucks' (a parody of Starbucks) visible on the wall, playful and humorous atmosphere, evening.`
+
 ### Repo durumu
 - Dal `main`, **her şey `origin/main`'e push'lu** (son commit `b98eacf`).
 - Çalışma ağacında bilerek commit'lenmemiş tek dosya: `.claude/launch.json` (yerel dev portu).
