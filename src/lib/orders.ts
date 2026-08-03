@@ -102,6 +102,7 @@ export type NewOrderInput = {
   themeId?: string;
   options?: Record<string, string>;
   favorite?: string;
+  looks?: string; // görünüm/kıyafet notu (opsiyonel, serbest metin)
   photoDatas?: string[]; // çocuğun fotoğrafları (1-3)
   companions?: OrderCompanion[];
   // --- çift anı kitabı alanları (product = "cift") ---
@@ -132,6 +133,7 @@ export type Order = {
   themeId: string;
   options: Record<string, string>;
   favorite: string | null;
+  looks: string | null; // görünüm/kıyafet notu
   photoDatas: string[]; // çocuğun fotoğrafları (1-3)
   companions: OrderCompanion[];
   teaserId: string | null;
@@ -312,6 +314,10 @@ function validate(input: NewOrderInput) {
     throw new OrderValidationError("Cinsiyet seçimi geçersiz.");
   }
 
+  if (input.looks && input.looks.length > 300) {
+    throw new OrderValidationError("Görünüm notu çok uzun.");
+  }
+
   const theme = getTheme(input.themeId ?? "");
   if (!theme) throw new OrderValidationError("Geçersiz tema.");
   for (const opt of theme.options) {
@@ -386,10 +392,10 @@ export function createOrder(input: NewOrderInput): Order {
 
   db.prepare(
     `INSERT INTO orders (
-      id, product, child_name, age, gender, theme_id, options_json, favorite,
+      id, product, child_name, age, gender, theme_id, options_json, favorite, looks,
       photo_data, photos_json, companions_json, couple_json, teaser_id,
       package_id, price, customer_name, email, phone, address, district, city, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     product,
@@ -399,6 +405,7 @@ export function createOrder(input: NewOrderInput): Order {
     isCouple ? "cift" : input.themeId,
     JSON.stringify(isCouple ? {} : input.options),
     isCouple ? null : input.favorite?.trim() || null,
+    isCouple ? null : input.looks?.trim() || null,
     (isCouple ? input.couple!.partner1.photoDatas[0] : input.photoDatas?.[0]) || null,
     !isCouple && input.photoDatas?.length ? JSON.stringify(input.photoDatas) : null,
     !isCouple && input.companions?.length ? JSON.stringify(input.companions) : null,
@@ -430,6 +437,7 @@ type OrderRow = {
   theme_id: string;
   options_json: string;
   favorite: string | null;
+  looks: string | null;
   photo_data: string | null;
   photos_json: string | null;
   companions_json: string | null;
@@ -519,6 +527,7 @@ export function getOrder(id: string): Order | null {
     themeId: row.theme_id,
     options: JSON.parse(row.options_json),
     favorite: row.favorite,
+    looks: row.looks,
     // Eski kayıtlar tek fotoğraflı (photo_data); yeniler photos_json.
     photoDatas: row.photos_json
       ? JSON.parse(row.photos_json)

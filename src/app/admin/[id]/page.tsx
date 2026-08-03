@@ -178,6 +178,7 @@ export default async function AdminOrderPage({
                   <Row label="Yaş / Cinsiyet" value={`${order.age} · ${order.gender === "kiz" ? "Kız" : "Erkek"}`} />
                   <Row label="Tema" value={`${theme?.emoji ?? ""} ${theme?.title ?? order.themeId}`} />
                   <Row label="Sevdiği şey" value={order.favorite ?? "—"} />
+                  <Row label="Görünüm notu" value={order.looks ?? "—"} />
                   {choiceRows.map((c) => (
                     <Row key={c.question} label={c.question} value={c.answer} />
                   ))}

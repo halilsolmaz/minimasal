@@ -75,6 +75,7 @@ export async function runBookGeneration(orderId: string): Promise<void> {
       themeId: order.themeId,
       options: order.options,
       favorite: order.favorite ?? undefined,
+      looks: order.looks ?? undefined,
       photoDatas: order.photoDatas,
       companions: order.companions.map((c) => ({
         relationId: c.relationId,

@@ -9,6 +9,11 @@ export type StoryInput = {
   themeId: string;
   options: Record<string, string>; // optionId -> choiceId
   favorite?: string;
+  // Kullanıcının yazdığı görünüm/kıyafet notu (opsiyonel): fotoğrafta
+  // görünmeyen ya da özellikle istenen detay. Hikaye yazarı bunu yerine ve
+  // zamanına uygun sahnelerde kullanır — her kareye dökülmez. Kıyafet
+  // normalde referans fotoğraflardan gelir (kurucu kararı 2026-08-03).
+  looks?: string;
   // Çocuğun referans fotoğrafları (1-3 data URL). Aynı kişinin farklı
   // açılardan fotoğrafları benzerliği artırır; ilki zorunlu.
   photoDatas?: string[];

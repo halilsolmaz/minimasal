@@ -65,6 +65,13 @@ function createDb(): Database.Database {
     // Ürün hattı (2026-07-19): 'cocuk' (masal kitabı) | 'cift' (anı kitabı).
     db.exec("ALTER TABLE orders ADD COLUMN product TEXT NOT NULL DEFAULT 'cocuk'");
   }
+  if (!orderCols.includes("looks")) {
+    // Çocuğun görünüm/kıyafet notu (2026-08-03, kurucu kararı): fotoğrafta
+    // görünmeyen ya da özellikle istenen detay ("gözlüklü", "her sahnede
+    // kırmızı pelerini olsun"). Hikaye yazarı bunu yerine/zamanına göre
+    // kullanır; normal sahnelerde kıyafet fotoğraflardan gelir.
+    db.exec("ALTER TABLE orders ADD COLUMN looks TEXT");
+  }
   if (!orderCols.includes("couple_json")) {
     // Çift siparişinin tüm verisi: partnerler (isim+fotolar), ilişki,
     // hitaplar ve cevaplanan anılar. Çocuk kolonları çift siparişinde

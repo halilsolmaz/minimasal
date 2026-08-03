@@ -12,6 +12,7 @@ export type WizardState = {
   themeId: string | null;
   options: Record<string, string>; // optionId -> choiceId
   favorite: string;
+  looks: string; // görünüm/kıyafet notu (opsiyonel)
   companions: Companion[]; // yan karakterler (opsiyonel, max MAX_COMPANIONS)
 };
 
@@ -26,6 +27,7 @@ export const initialWizardState: WizardState = {
   themeId: null,
   options: {},
   favorite: "",
+  looks: "",
   companions: [],
 };
 

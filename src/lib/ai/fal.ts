@@ -224,7 +224,27 @@ const STORY_SYSTEM_PROMPT =
   "yeniden dener ve bir şey öğrenir (yaş büyüdükçe bu daha belirgin). " +
   "TUTARLILIK: sihirli yaratık ve önemli nesnelerin görünümünü (renk, boyut) " +
   "hem pageText'te hem TÜM imageBrief'lerde AYNI tut — bir sahnede 'küçük " +
-  "pembe', başka sahnede 'kocaman mor' olamaz. " +
+  "pembe', başka sahnede 'kocaman mor' olamaz. Bu kural hikayede TEKRAR EDEN " +
+  "her yaratık/nesne için geçerlidir (yalnız sihirli olan için değil): kayıp " +
+  "kuş, yuva, oyuncak… hepsinin görünümünü ilk geçtiği yerde belirle ve sonra " +
+  "aynen koru. " +
+  "GERÇEK KİŞİLER/HAYVANLAR (çocuk ve yan karakterler): bunların FOTOĞRAFI " +
+  "ressama ayrıca gidiyor. Görünümlerini ASLA UYDURMA — saç/göz/tüy rengi, " +
+  "irilik, ten, tür özelliği yazma. 'her white cat' YASAK, 'her cat' DOĞRU; " +
+  "'blonde girl' YASAK, 'the child' DOĞRU. Uydurduğun renk fotoğraftakiyle " +
+  "çelişirse ressam iki zıt komut alır ve görsel bozulur. Sadece NE " +
+  "YAPTIKLARINI ve NE HİSSETTİKLERİNİ yaz. " +
+  "KIYAFET: kıyafeti UYDURMA ve tek bir kıyafete de kilitleme — müşteri birden " +
+  "çok fotoğraf yüklüyor, ressam kıyafeti onlardan alır (kurucu kararı: kendi " +
+  "seçtiğimiz kıyafet tutmazsa her sayfa bozulur, fotoğraftan gelen kıyafet " +
+  "hata payını düşürür). Normal sahnelerde imageBrief'e kıyafet YAZMA. İki " +
+  "istisna: (a) sahne zorunlu kılıyorsa yalnız o gerekliliği yaz (karlı dağ → " +
+  "'warm winter coat', deniz → 'swimsuit', gece → 'pyjamas'); (b) sana özel bir " +
+  "kıyafet/görünüm notu verildiyse onu YERİ VE ZAMANI uygun düşen sahnelerde " +
+  "kullan (her kareye değil). " +
+  "KADRAJ: sayfalar birbirinin aynısı görünmesin. Her imageBrief'in sonunda " +
+  "kadrajı İKİ-ÜÇ KELİMEYLE belirt ('close-up', 'medium shot', 'wide shot') ve " +
+  "kitap boyunca çeşitlendir. Abartma: sinematik açı/lens/teknik terim YOK. " +
   "İstenen JSON formatının DIŞINA asla çıkma, açıklama ekleme.";
 
 function storyPrompt(input: WriteStoryInput): string {
@@ -239,6 +259,15 @@ function storyPrompt(input: WriteStoryInput): string {
   const favorite = input.favorite?.trim()
     ? ` Çocuğun sevdiği şey: ${input.favorite.trim()} — hikayeye zorlamadan küçük bir dokunuş olarak yedir.`
     : "";
+  const looks = input.looks?.trim()
+    ? ` MÜŞTERİNİN GÖRÜNÜM NOTU (bunu görmezden GELME, müşteri özellikle yazdı): ` +
+      `"${input.looks.trim()}". Önce şuna karar ver: bu not KALICI mı DEĞİŞKEN mi?\n` +
+      `- KALICI (gözlük, çil, doğum lekesi, diş teli, saç modeli, protez): çocuğun ` +
+      `göründüğü HER imageBrief'te yaz, tek sahne bile atlama.\n` +
+      `- DEĞİŞKEN (belirli bir kıyafet, pelerin, şapka, oyuncak): yalnız yeri ve ` +
+      `zamanı uygun düşen sahnelerde yaz, her kareye tekrarlama.\n` +
+      `Bu notun dışında kıyafet tarif etme.`
+    : "";
   const hasCompanions = (input.companions ?? []).length > 0;
   const companionList = (input.companions ?? [])
     .map((c, i) => {
@@ -251,12 +280,22 @@ function storyPrompt(input: WriteStoryInput): string {
   const companions = hasCompanions
     ? ` Çocuğa eşlik edebilecek yan karakterler (numaralı): ${companionList}. ` +
       `Onları DOĞAL kat — HER sahnede görünmek ZORUNDA değiller, sadece hikayenin ` +
-      `o anına uygun düştükleri sahnelerde (robotik biçimde her kareye koyma). Her ` +
+      `o anına uygun düştükleri sahnelerde (robotik biçimde her kareye koyma). ` +
+      `AMA ŞU ŞART: listedeki her karakter kitapta EN AZ BİR sahnede görünmeli — ` +
+      `müşteri o kişinin fotoğrafını özellikle yükledi, kitapta hiç çıkmaması kabul ` +
+      `edilemez. Bunu HİKAYE MANTIĞINI ZORLAYARAK yapma: aile üyelerinin doğal yeri ` +
+      `açılış (evde/bahçede) ve dönüş sahneleridir; onları macera bölümüne (uzayda, ` +
+      `bulutların üstünde, sihirli diyarda) gerçeklikten kopuk biçimde SOKMA. Evcil ` +
+      `hayvan çocukla birlikte maceraya gelebilir. Her ` +
       `sahnede "sceneCompanions" alanına O SAHNEDE görünen yan karakterlerin ` +
       `NUMARALARINI yaz (kimse yoksa boş dizi []). imageBrief'te de yalnız o sahnedeki ` +
-      `karakterleri açıkça belirt (örn. 'the child and her mother').`
+      `karakterleri açıkça belirt. imageBrief'te bu karakterlerden söz ederken ` +
+      `SADECE yakınlığı yaz — 'her mother', 'her grandmother', 'her cat'. Önlerine ` +
+      `HİÇBİR görünüm sıfatı koyma: 'white cat', 'little white cat', 'elderly ` +
+      `grandmother', 'young mother' hepsi YASAK. Fotoğrafları ressama zaten ` +
+      `gidiyor; senin uydurduğun renk/yaş fotoğrafla çelişirse görsel bozulur.`
     : "";
-  const hero = `Kahraman: ${input.childName}, ${input.age} yaşında ${input.gender === "kiz" ? "kız" : "erkek"} çocuk. Tema: ${theme?.title ?? input.themeId}. Seçimler: ${choices}.${favorite}${companions}`;
+  const hero = `Kahraman: ${input.childName}, ${input.age} yaşında ${input.gender === "kiz" ? "kız" : "erkek"} çocuk. Tema: ${theme?.title ?? input.themeId}. Seçimler: ${choices}.${favorite}${looks}${companions}`;
 
   const companionField = hasCompanions
     ? `\n- "sceneCompanions": bu sahnede görünen yan karakter NUMARALARI dizisi ` +
@@ -264,8 +303,10 @@ function storyPrompt(input: WriteStoryInput): string {
     : "";
   const fieldRules =
     `- "pageText": sayfaya basılacak masal metni (yukarıdaki yaş kuralına uygun cümle sayısı)\n` +
-    `- "imageBrief": o sahnenin İngilizce görsel tarifi (çocuk ne yapıyor, nerede, hangi duygu, ` +
-    `hangi detaylar; 1-2 cümle; 'the child' de, isim yazma)` +
+    `- "imageBrief": o sahnenin İngilizce görsel tarifi. Bu tarif sayfadaki resmin ` +
+    `TEK kaynağı — kısa tutma, 2-3 cümle yaz ve şunları içersin: çocuk ne yapıyor, ` +
+    `mekân ve o mekânın somut detayları, günün hangi saati/ışık, sahnenin duygusu, ` +
+    `sonda kadraj. 'the child' de, isim yazma` +
     companionField;
   const sceneShape = hasCompanions
     ? `{"pageText": "...", "imageBrief": "...", "sceneCompanions": [1, 2]}`
@@ -348,6 +389,36 @@ async function callLlm(
     throw new Error(`fal.ai LLM hata: ${json.error ?? "boş cevap"}`);
   }
   return json.output;
+}
+
+/* ---------- Yan karakter garantisi ---------- */
+
+// Müşteri bir yan karakterin fotoğrafını yüklediyse o karakter kitapta EN AZ
+// BİR sahnede görünmek ZORUNDA (kurucu kararı 2026-08-03). İstemde kural var
+// ama LLM'e güvenmiyoruz: hiç geçmeyen karakteri son sahneye (sıcak dönüş —
+// ailenin doğal olarak toplandığı sahne) ekleriz.
+function ensureEveryCompanionAppears(
+  scenes: { pageText: string; imageBrief: string; sceneCompanions?: number[] }[],
+  companionCount: number
+): void {
+  if (companionCount === 0 || scenes.length === 0) return;
+  // sceneCompanions hiç üretilmemişse dokunma: eski/aksi davranış "hepsi
+  // her sahnede" demek, zaten kimse dışarıda kalmıyor.
+  if (scenes.every((s) => s.sceneCompanions === undefined)) return;
+
+  const seen = new Set(scenes.flatMap((s) => s.sceneCompanions ?? []));
+  const missing = Array.from({ length: companionCount }, (_, i) => i + 1).filter(
+    (n) => !seen.has(n)
+  );
+  if (missing.length === 0) return;
+
+  const last = scenes[scenes.length - 1];
+  last.sceneCompanions = Array.from(
+    new Set([...(last.sceneCompanions ?? []), ...missing])
+  ).sort((a, b) => a - b);
+  console.warn(
+    `Yan karakter(ler) hiçbir sahnede geçmemiş, son sahneye eklendi: ${missing.join(", ")}`
+  );
 }
 
 /* ---------- Türkçe düzelti (proofread) ---------- */
@@ -484,6 +555,7 @@ export const falProvider: AiProvider = {
       // (Düzeltiden SONRA: o sahne önizlemede zaten düzeltildi ve görseli
       //  üretildi; metnin harfi harfine aynı kalması şart.)
       if (input.fixedFirstScene) scenes[0] = input.fixedFirstScene;
+      ensureEveryCompanionAppears(scenes, (input.companions ?? []).length);
       return {
         title: (input.fixedTitle ?? fixed.title).trim(),
         scenes,

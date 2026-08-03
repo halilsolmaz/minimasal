@@ -127,6 +127,7 @@ export default function CreatePage() {
           themeId: data.themeId,
           options: data.options,
           favorite: data.favorite,
+          looks: data.looks,
           photoDatas: data.photoUrls,
           companions: data.companions.map((c) => ({
             relationId: c.relationId,
@@ -378,8 +379,28 @@ export default function CreatePage() {
                 placeholder="Örn. mor renk, dinozorlar, en sevdiği oyuncak ayı…"
                 className="w-full rounded-2xl border border-ink/15 px-5 py-4 text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
               />
+
+              {/* Görünüm notu: kıyafeti normalde fotoğraflardan alıyoruz;
+                  burası yalnız fotoğrafta görünmeyen ya da özellikle
+                  istenen detaylar için. */}
+              <label className="mt-8 block text-lg font-semibold text-ink">
+                Eklemek istediğiniz bir görünüm detayı?
+              </label>
+              <p className="mt-1 mb-3 text-sm text-ink-soft">
+                İsteğe bağlı. Kıyafetleri yüklediğiniz fotoğraflardan alıyoruz —
+                burayı yalnız fotoğrafta görünmeyen ya da masalda mutlaka olsun
+                istediğiniz bir detay için doldurun.
+              </p>
+              <input
+                type="text"
+                value={data.looks}
+                maxLength={300}
+                onChange={(e) => update({ looks: e.target.value })}
+                placeholder="Örn. gözlük takıyor, kırmızı pelerini olsun, saçı hep at kuyruğu…"
+                className="w-full rounded-2xl border border-ink/15 px-5 py-4 text-lg outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+              />
               <p className="mt-3 text-sm text-ink-soft">
-                Bu adımı boş bırakabilirsiniz.
+                İkisini de boş bırakabilirsiniz.
               </p>
             </StepShell>
           )}
@@ -513,6 +534,7 @@ function Summary({
     ["Yaş", data.age ? `${data.age}` : "—"],
     ["Tema", themeTitle ?? "—"],
     ["Sevdiği şey", data.favorite || "—"],
+    ["Görünüm notu", data.looks || "—"],
     ["Yan karakterler", companions],
   ];
   return (

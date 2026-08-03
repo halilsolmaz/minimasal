@@ -166,6 +166,7 @@ export default function CheckoutPage() {
             themeId: wizard!.themeId,
             options: wizard!.options,
             favorite: wizard!.favorite,
+            looks: wizard!.looks,
             photoDatas: wizard!.photoUrls,
             companions: wizard!.companions.map((c) => ({
               relationId: c.relationId,

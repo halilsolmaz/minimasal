@@ -22,6 +22,7 @@ type PreviewRequest = {
   themeId: string;
   options: Record<string, string>;
   favorite?: string;
+  looks?: string;
   photoDatas?: string[];
   companions?: { relationId: string; name?: string; photoDatas: string[] }[];
 };
@@ -35,6 +36,8 @@ function validationError(body: PreviewRequest): string | null {
     return "Yaş 3 ile 9 arasında olmalı.";
   if (body.gender !== "kiz" && body.gender !== "erkek")
     return "Cinsiyet seçimi geçersiz.";
+  if (body.looks && (typeof body.looks !== "string" || body.looks.length > 300))
+    return "Görünüm notu çok uzun.";
   const theme = getTheme(body.themeId);
   if (!theme) return "Geçersiz tema.";
   for (const opt of theme.options) {
