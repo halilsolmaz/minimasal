@@ -217,8 +217,41 @@ beslenmiyordu ve sayfaya basılan Türkçe hiç denetlenmiyordu.**
   basıp asıl baloncuğu aşağı kaydırıyor).
 
 Doğrulama: `tsc --noEmit` temiz, `next build` geçti, boş-baloncuk davranışı
-eski/yeni kod karşılaştırmasıyla ölçüldü. **Gerçek AI üretimi yapılmadı** —
-kurucu 2026-08-03'te "şimdilik harcama yok, test yok" dedi.
+eski/yeni kod karşılaştırmasıyla ölçüldü.
+
+### Part 2'nin ikinci turu — METİN TESTİ YÖNTEMİ (kurucu fikri, 2026-08-03)
+
+> **Bu bölüm bundan sonraki tüm istem çalışmasının yöntemi.** Kurucunun tespiti:
+> görselin kalitesini `imageBrief` belirliyor, o da METİN çağrısında üretiliyor.
+> Görsel $0.15, metin $0.001 → **istemleri para harcamadan iyileştirebiliyoruz.**
+
+- `8b1b160` **`POST /api/dev/hikaye`** — yalnız LLM'i çalıştıran test ucu, görsel
+  modeline hiç dokunmaz. Canlıda `NODE_ENV` ile kapalı. `tur`: `cocuk` | `cift` |
+  `duzelti`; `ham: true` düzeltisiz çiğ çıktı; `istemGoster: true` modele giden
+  tam istem. Bir kitaplık hikaye+brief ≈ **$0.002**, ~40 sn.
+- `f8dec97` **imageBrief'ler güçlendirildi** (5 gerçek üretimle denendi, toplam
+  ~$0.012). Bulunan kusurlar ve çözümleri:
+  1. **Uydurma görünüm** — yazar kediyi "bembeyaz" diye uydurup her brief'e
+     `her white cat` yazıyordu; Pamuk'un GERÇEK fotoğrafı da aynı isteme gidiyor
+     → model iki çelişen komut alıyordu. Artık fotoğrafı olan karaktere sıfat
+     yasak (`her cat`, `her grandmother`).
+  2. **Kıyafet (kurucu kararı):** tek kıyafete kilitleme YOK — referans
+     fotoğraflardan gelsin, hata payı düşsün. Brief'e kıyafet yazılmaz.
+  3. **YENİ: görünüm notu (`looks`)** — sihirbaz 5. adım, opsiyonel. Yazar
+     KALICI (gözlük/çil → her brief'te) / DEĞİŞKEN (pelerin → uygun sahnelerde)
+     ayrımını kendisi yapar. DB kolonu `orders.looks`.
+  4. **Tutarlılık** artık sadece sihirli yaratık için değil, tekrar eden HER
+     yaratık/nesne için (test: kuş her sahnede "tiny yellow bird").
+  5. **Kadraj + ışık** her brief'in sonunda (close-up/medium/wide + günün saati).
+  6. **Brief uzunluğu** 1-2 → 2-3 cümle (zayıflığın asıl kaynağı buydu).
+- **ÜRÜN SORUNU ÇÖZÜLDÜ:** yüklenen yan karakter kitapta hiç görünmeyebiliyordu
+  (testte nine 8 sahnenin hiçbirinde yoktu). İstem şartı + kod garantisi
+  (`ensureEveryCompanionAppears`). Ek kural: hikaye mantığını zorlamadan — ilk
+  denemede LLM anneyi bulutların üstüne çıkarıp çiçek toplatmıştı; ailenin yeri
+  açılış/dönüş sahneleri, evcil hayvan maceraya gelebilir.
+
+**Hâlâ görsel üretimi YAPILMADI** — kurucu 2026-08-03'te "şimdilik harcama yok"
+dedi. Kadraj/ışık/kıyafet kurallarının gerçek görselde nasıl durduğu bilinmiyor.
 
 ### Repo durumu
 - Dal `main`, **her şey `origin/main`'e push'lu** (son commit `b98eacf`).
