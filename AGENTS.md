@@ -8,7 +8,10 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 > Bu dosya, projeye yeni katılan bir geliştirici/asistan için tam bağlam sağlar.
 > Başka bir bilgisayara geçildiğinde "kaldığın yerden devam" için hazırlanmıştır.
-> **Son güncelleme:** 2026-07-02
+> **Son güncelleme:** 2026-08-03
+>
+> 👉 **Yeni session başlıyorsan önce Bölüm 9'u (EN SON DURUM) oku** — en güncel
+> kaldığımız yer ve sıradaki adım orada.
 
 ---
 
@@ -141,7 +144,7 @@ data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 Şirket kuruluşu, iyzico anlaşması, üyelik/e-posta doğrulama ve KVKK/hukuk metinleri **canlıya çıkış aşamasına ertelendi** — kurucu bunları o zaman halledecek. O yüzden öncelik ürün tarafında.
 
 ### Eksik (öncelik sırasıyla)
-1. **Gerçek AI bağlantısı** — iskelet hazır, `src/lib/ai/fal.ts` doldurulacak. Bekleyen: kurucunun fal.ai hesabı + FAL_KEY (kart bağlamayı gerektirir, kurucu yapacak). Anahtar gelince: model/fiyat teyidi → fal.ts implementasyonu → suluboya vs 3D stil testi. Sonrasında: sipariş sonrası TAM KİTAP üretimi (8 sayfa, ham dosyalar sunucuda).
+1. ~~**Gerçek AI bağlantısı**~~ **TAMAMLANDI (2026-07-08).** `src/lib/ai/fal.ts` gerçek implementasyon: görsel = Nano Banana Pro, metin = fal any-llm üzerinden Claude Sonnet 4.5. `.env.local`'de **FAL_KEY tanımlı**; `AI_PROVIDER` boş → otomatik **fal** (yani lokalde çalıştırınca GERÇEK üretim ve GERÇEK maliyet ~$0.90-1/kitap). Mock'a düşmek için `AI_PROVIDER=mock`. Sipariş sonrası tam kitap üretimi de çalışıyor (`bookRun.ts` → Masaüstü/minimasal-kitaplar/&lt;SİPARİŞNO&gt;/, kitap.html + kitap.pdf + durum.txt). **Kalan risk:** 2026-07-22'de eklenen kalite kuralları (yaş/pedagoji/tutarlılık, sahne-bazlı yan karakter, foto bütçesi, çift kitabı v2) gerçek AI ile HİÇ denenmedi — bkz. Bölüm 9.
 2. **İçerik:** ~~SSS, İletişim, Hakkımızda~~ (2026-07-02'de eklendi, footer/header bağlantılı, mobil test edildi). Kalan: gerçek örnek galeri (gerçek AI görselleri gelince — sahte galeri koymuyoruz), OG görselleri, sosyal medya.
 3. **Matbaa + kargo entegrasyonu** (POD mı, yerel matbaa mı — henüz karar yok).
 4. **Canlıya çıkış paketi (kurucu erteledi):** ödeme (iyzico + şirket), üyelik/e-posta doğrulama + istismar koruması (CAPTCHA, rate-limit), sipariş e-postaları, KVKK/hukuk metinleri, admin auth sertleştirme.
@@ -152,7 +155,7 @@ data/                 # lokal SQLite dosyası (kişisel veri — commit edilmez)
 - **Çoklu referans fotoğraf — KURULDU (2026-07-08; 2026-07-22 kurucu kararıyla artırıldı):** Çocuk için **3-5** (zorunlu min 3), yan karakter başına **1-3** fotoğraf (`MIN_CHILD_PHOTOS`/`MAX_CHILD_PHOTOS`/`MAX_COMPANION_PHOTOS`, characters.ts). Aynı kişinin farklı açıları benzerliği artırır; en kötü durum **5+3×3=14** referans = Pro sınırını tam kullanır. **Birlikte/aile foto YOK** (kurucu kararı 2026-07-22: çoklu karakterde "kim kim" ayrımı zorlaşır, solo fotolar daha temiz kontrol verir; çift kitabındaki "together" mantığı çocukta uygulanmadı çünkü çocuk<yetişkin boy oranı zaten modelin bildiği bir şey). Min 3 zorunluluğu wizard geçişinde + `orders.ts` + `onizleme` doğrulamasında. Sipariş tablosunda `photos_json` (photo_data ilk fotoğrafı tutmaya devam eder, eski kayıtlar uyumlu). Görsel isteminde referans numaraları image_urls sırasıyla eşleşir (`referenceMap`, fal.ts). UI+DB+admin uçtan uca test edildi; gerçek AI üretim testi bekliyor.
 - **İç sayfa maliyet düşürme:** kapak Pro'da kalsın; iç sayfalar için Nano Banana 2 ($0.08) ve FLUX Kontext pro ($0.04) karşılaştırma testi yapılacak (kurucu "yap" deyince; aynı Defne girdisiyle).
 
-**Sıradaki adım:** AI entegrasyonu (kurucu "biraz geç girelim" dedi — hazır olduğunda A/B yolunu seçecek) veya içerik sayfaları.
+**Sıradaki adım:** bkz. **Bölüm 9 — EN SON DURUM**.
 
 ---
 
@@ -178,4 +181,39 @@ npm run dev            # http://localhost:3000
 
 ## 8. Yeni asistana ilk mesaj önerisi
 
-> "Bu bir Next.js projesi — kişiselleştirilmiş çocuk masal kitabı satan bir e-ticaret girişimi (MiniMasal). Kök dizindeki CLAUDE.md / AGENTS.md dosyasını oku; tüm kararlar, mimari ve kaldığımız yer orada. Özetle landing, oluşturma sihirbazı, veritabanı ve checkout (test modu) hazır; eksikler ve öncelik sırası dosyanın 6. bölümünde. Buradan devam edelim."
+> "Bu bir Next.js projesi — kişiselleştirilmiş hediye kitapları satan bir e-ticaret girişimi (MiniMasal). Kök dizindeki CLAUDE.md / AGENTS.md dosyasını oku; tüm kararlar, mimari ve kaldığımız yer orada — özellikle **Bölüm 9 (EN SON DURUM)**. Buradan devam edelim."
+
+---
+
+## 9. EN SON DURUM — Part 2 devir notu (2026-08-03)
+
+> Part 1 oturumu burada bitti. Yeni session "MiniMasal Part 2 devam" ile başlıyorsa
+> **bu bölüm kaldığımız yerdir.**
+
+### Repo durumu
+- Dal `main`, **her şey `origin/main`'e push'lu** (son commit `16d9b36`).
+- Çalışma ağacında bilerek commit'lenmemiş tek dosya: `.claude/launch.json` (yerel dev portu).
+- **Port notu:** kurucunun makinesinde **port 3000'i başka bir proje (MT Evaluation/WatchMQM) tutuyor**, o yüzden `launch.json`'da minimasal-dev **3001**'e alındı → `http://localhost:3001`.
+
+### Part 1'in son turunda yapılanlar (7 commit, hepsi push'lu)
+Çocuk masalı — kurucunun **ilk gerçek AI demosu** (Defne, 3 yaş, 2026-07-08) eleştirilerinden:
+- `a3006d4` **Yaş/pedagoji/tutarlılık:** ses oyunu (fışşş/vızzz) yalnız 3-4 yaşta + gerçekçi olmak zorunda, 5-6'da çok az, **7-9'da yasak**; kahraman zorluğu tek hamlede/sihirle çözemez (çaba→takılma→yeniden deneme→yardım→öğrenme, yaşla artan didaktiklik); sihirli yaratık/nesne renk+boyutu metinde ve TÜM imageBrief'lerde sabit.
+- `1b24cf7` **Foto bütçesi:** çocuk 3-5 (min 3 ZORUNLU), yan karakter 1-3, birlikte foto YOK → en kötü 5+3×3=14.
+- `16d9b36` **Sahne-bazlı yan karakter:** `StoryScene.sceneCompanions` ile anne/kedi her kareye robotik konmaz.
+Çift kitabı: `7ad4834` (evcil dost tür+mekân doğallığı), `df27ca0` (ayırt edici özellikler `looks1/looks2`), `b5b0bf9` (doğal dağılım ilkesi).
+Site: `b22dd84` (ana sayfa iki ürünü **eşit ağırlıkta** sunar — hero/header/metadata nötrlendi, her ürüne kendi bölümü + fiyatları).
+
+### ⚠️ En kritik açık konu
+**Yukarıdaki kalite kurallarının HİÇBİRİ gerçek AI ile denenmedi** — hepsi mock ile doğrulandı (mock bu kuralları göstermez). FAL_KEY tanımlı, yani test yapılabilir.
+
+**Önerilen ilk iş — regresyon testi:** Defne girdisiyle yeniden kitap üret, 2026-07-08 çıktısıyla karşılaştır (`C:\Users\halil\Desktop\minimasal-kitaplar\80C80813` — hikaye.json + 8 sahne + kapak duruyor). Bakılacak üç şey:
+1. Ses oyunları düzeldi mi (3 yaş için gerçekçi mi; "rüzgar fışşş" gibi uydurma eşleşme kalktı mı)
+2. Ejderha tutarlılığı (eski çıktıda metin "pembe, küçük" derken kapak/sahnelerde "mor, kocaman"dı)
+3. Pedagoji (eski çıktıda Defne her şeyi kolayca başarıyordu; artık zorlanmalı)
+- **Uyarı:** gerçek üretim ≈ $0.90-1 ve birkaç dakika. Min 3 foto kuralı yüzünden `defos.jpg` tek başına YETMEZ — Defne'nin 2 fotoğrafı daha lazım.
+
+### Kurucunun ertelediği/bekleyen kararlar
+- **Min 3 foto zorunluluğunun dönüşüm riski:** 1-2 fotoğrafı olan müşteri ürünü hiç kullanamıyor. Kurucu "şimdilik dursun" dedi (2026-07-22). Yumuşatmak tek sabit: `MIN_CHILD_PHOTOS` (characters.ts).
+- **İç sayfa maliyet düşürme** testi (Nano Banana 2 / FLUX Kontext pro) — kurucu "yap" deyince.
+- **Çift kitabı gerçek AI testi:** kurucunun gerçek örnek malzemesi hazır (Halil & Buse; İzmir, kediler Bihter & İrmik) ama v2 revizyonu sonrası hiç üretilmedi.
+- Canlıya çıkış paketi (ödeme/şirket/hukuk) kurucu tarafından ertelendi.
