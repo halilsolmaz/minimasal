@@ -103,6 +103,9 @@ export async function POST(request: Request) {
       childName,
       kind: "cover",
       title: story.title,
+      // Kapak tarifi hikaye yazarından gelir → kapaktaki yaratığın
+      // rengi/boyutu masal metniyle aynı olur.
+      coverBrief: story.coverBrief,
     });
     // 1. sahne görselinde yalnız o sahnede görünen yan karakterlerin
     // referansını gönder (sceneCompanions 1-tabanlı; undefined = hepsi).

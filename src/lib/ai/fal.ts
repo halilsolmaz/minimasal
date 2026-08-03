@@ -97,10 +97,12 @@ function coverPrompt(input: GenerateImageInput, refDescription: string): string 
   const favorite = input.favorite?.trim()
     ? ` Subtly include the child's favorite thing: ${input.favorite.trim()}.`
     : "";
+  // Kapak tarifi hikaye yazarından gelir (yaratığın rengi/boyutu metinle
+  // aynı olsun diye). Gelmezse temadan kurulan genel sahneye düşülür.
   return (
     `Children's picture book COVER illustration. ${STYLE_PROMPT}. ` +
     refDescription +
-    sceneFor(input) +
+    (input.coverBrief?.trim() || sceneFor(input)) +
     favorite +
     ` Render the book title text "${input.title}" prominently at the top in a playful, ` +
     `rounded, child-friendly font (the title is in Turkish — render it exactly as written). ` +
@@ -269,6 +271,14 @@ function storyPrompt(input: WriteStoryInput): string {
     ? `{"pageText": "...", "imageBrief": "...", "sceneCompanions": [1, 2]}`
     : `{"pageText": "...", "imageBrief": "..."}`;
 
+  // Kapak da senin tarifinden çizilir — yoksa kapaktaki yaratık metindekiyle
+  // uyuşmuyor (2026-07-08 demosunun en görünür kusuru).
+  const coverRule =
+    `- "coverBrief": KAPAK görselinin İngilizce tarifi (1-2 cümle). Masalın en ` +
+    `çarpıcı anını/dünyasını göster; 1. sahnenin kopyası OLMASIN. Masaldaki ` +
+    `sihirli yaratık/nesne kapakta da görünüyorsa RENGİNİ ve BOYUTUNU metindeki ` +
+    `ile birebir aynı yaz (örn. "a small pink dragon"). 'the child' de, isim yazma.`;
+
   if (input.scope === "teaser") {
     // Önizleme: başlık + 1. sahne (Tanışma). Sipariş gelirse bu sahne
     // tam kitapta aynen kullanılır — o yüzden gerçek kalitede yazılır.
@@ -276,8 +286,9 @@ function storyPrompt(input: WriteStoryInput): string {
       `${hero}\n\n${ageStyle(input.age)}\n\n` +
       `Bu masal için: (1) etkileyici, kısa bir kitap başlığı üret (en fazla 5 kelime, ` +
       `çocuğun adı geçsin), (2) masalın 1. sahnesini yaz (Tanışma: çocuğu ve dünyasını ` +
-      `tanıtan, tek başına da anlamlı bir açılış sahnesi).\n\nSahne alanları:\n${fieldRules}\n\n` +
-      `SADECE şu JSON'u döndür: {"title": "...", "scene1": ${sceneShape}}`
+      `tanıtan, tek başına da anlamlı bir açılış sahnesi), (3) kapak tarifini yaz.\n\n` +
+      `Sahne alanları:\n${fieldRules}\n\nAyrıca:\n${coverRule}\n\n` +
+      `SADECE şu JSON'u döndür: {"title": "...", "coverBrief": "...", "scene1": ${sceneShape}}`
     );
   }
 
@@ -295,8 +306,8 @@ function storyPrompt(input: WriteStoryInput): string {
     `${hero}\n\n${ageStyle(input.age)}\n\n` +
     `${beats.length} sahnelik bir masal yaz. Sahne iskeleti SABİT, sırayı ve işlevi değiştirme:\n` +
     beats.map((b, i) => `${i + 1}. ${b}`).join("\n") +
-    `\n\nHer sahne için alanlar:\n${fieldRules}${fixedFirst}\n\n` +
-    `SADECE şu JSON'u döndür: {"title": "...", "scenes": [${sceneShape}, ...]}`
+    `\n\nHer sahne için alanlar:\n${fieldRules}\n\nAyrıca:\n${coverRule}${fixedFirst}\n\n` +
+    `SADECE şu JSON'u döndür: {"title": "...", "coverBrief": "...", "scenes": [${sceneShape}, ...]}`
   );
 }
 
@@ -339,6 +350,61 @@ async function callLlm(
   return json.output;
 }
 
+/* ---------- Türkçe düzelti (proofread) ---------- */
+
+// İkinci, ucuz bir LLM çağrısı (~$0.001) metni basılmadan önce dil
+// açısından denetler. Gerekçe: 2026-07-08 demosunda yazar LLM'i "gökkuşağa"
+// (doğrusu "gökkuşağına") ve "Pamuk de geldi" (doğrusu "da") gibi ek
+// hataları yaptı — ekranda tolere edilir, BASILI kitapta edilmez.
+// İçeriğe dokunulmaz; sadece dil bilgisi/imla düzeltilir.
+const PROOFREAD_SYSTEM_PROMPT =
+  "Sen titiz bir Türkçe düzeltmenisin (çocuk kitabı editörü). Sana verilen " +
+  "metinlerdeki YALNIZCA dil bilgisi ve imla hatalarını düzeltirsin. " +
+  "Özellikle dikkat et: yönelme/belirtme eki eksikliği veya yanlışlığı " +
+  "('gökkuşağa' → 'gökkuşağına'), ünlü uyumu ('Pamuk de' → 'Pamuk da'), " +
+  "ünsüz yumuşaması ('kitapı' → 'kitabı'), ünlü düşmesi ('burunu' → 'burnu'), " +
+  "bağlaç olan 'de/da' ayrı, ek olan '-de/-da' bitişik yazılır, özel isim " +
+  "ekleri kesme işaretiyle ('Defne'ye'), yanlış çekimlenmiş fiiller ve " +
+  "düşük cümleler. YASAK: içeriği, olay örgüsünü, üslubu, kelime seçimini, " +
+  "cümle sayısını veya uzunluğu değiştirmek; cümle eklemek/çıkarmak. " +
+  "Hatasız metni harfi harfine aynen geri ver. " +
+  "İstenen JSON formatının DIŞINA asla çıkma, açıklama ekleme.";
+
+// Başlık + sayfa metinlerini düzeltir. Herhangi bir aksilikte (LLM hatası,
+// bozuk JSON, eleman sayısı tutmaması) sessizce ORİJİNALE döner — düzelti
+// bir iyileştirmedir, üretimi kırmasına izin verilmez.
+async function proofread(
+  title: string,
+  texts: string[]
+): Promise<{ title: string; texts: string[] }> {
+  const original = { title, texts };
+  if (texts.length === 0) return original;
+  try {
+    const output = await callLlm(
+      `Aşağıdaki çocuk masalı başlığını ve sayfa metinlerini dil bilgisi/imla ` +
+        `açısından düzelt. Sırayı ve eleman sayısını KORU.\n\n` +
+        JSON.stringify(original, null, 2) +
+        `\n\nSADECE şu JSON'u döndür: {"title": "...", "texts": ["...", ...]}`,
+      PROOFREAD_SYSTEM_PROMPT
+    );
+    const fixed = extractJson<{ title?: string; texts?: string[] }>(output);
+    if (
+      !Array.isArray(fixed.texts) ||
+      fixed.texts.length !== texts.length ||
+      fixed.texts.some((t) => typeof t !== "string" || !t.trim())
+    ) {
+      return original;
+    }
+    return {
+      title: fixed.title?.trim() || title,
+      texts: fixed.texts.map((t) => t.trim()),
+    };
+  } catch (err) {
+    console.warn("Düzelti adımı atlandı:", err);
+    return original;
+  }
+}
+
 // Diğer ürün hatlarının (ör. çift anı kitabı) kullandığı ham yardımcılar.
 // Sağlayıcı seçimi yine ai/ altındaki ürün modülünde yapılır.
 export function falRawImage(prompt: string, refs: string[]): Promise<Buffer> {
@@ -371,19 +437,25 @@ export const falProvider: AiProvider = {
       if (input.scope === "teaser") {
         const parsed = extractJson<{
           title: string;
+          coverBrief?: string;
           scene1: { pageText: string; imageBrief: string; sceneCompanions?: number[] };
         }>(output);
         if (!parsed.title?.trim() || !parsed.scene1?.pageText || !parsed.scene1?.imageBrief) {
           throw new Error("Teaser çıktısı eksik (başlık veya 1. sahne yok).");
         }
+        // Önizleme metni siparişte AYNEN yeniden kullanılıyor (bookRun.ts) —
+        // düzelti burada yapılmazsa hata basılı kitaba kadar gider.
+        const fixed = await proofread(parsed.title.trim(), [parsed.scene1.pageText]);
         return {
-          title: parsed.title.trim(),
-          scenes: [parsed.scene1],
+          title: fixed.title,
+          scenes: [{ ...parsed.scene1, pageText: fixed.texts[0] }],
+          coverBrief: parsed.coverBrief?.trim(),
           provider: `fal:${LLM_MODEL}`,
         };
       }
       const parsed = extractJson<{
         title: string;
+        coverBrief?: string;
         scenes: { pageText: string; imageBrief: string; sceneCompanions?: number[] }[];
       }>(output);
       const expected = skeletonFor(input.scenes ?? 5).length;
@@ -392,11 +464,19 @@ export const falProvider: AiProvider = {
           `LLM çıktısı eksik (başlık veya ${expected} sahne yok).`
         );
       }
+      const fixed = await proofread(
+        parsed.title.trim(),
+        parsed.scenes.map((s) => s.pageText)
+      );
+      const scenes = parsed.scenes.map((s, i) => ({ ...s, pageText: fixed.texts[i] }));
       // Sabitlenen başlık/1. sahneyi LLM'e güvenmeden zorla — kapak basıldı.
-      if (input.fixedFirstScene) parsed.scenes[0] = input.fixedFirstScene;
+      // (Düzeltiden SONRA: o sahne önizlemede zaten düzeltildi ve görseli
+      //  üretildi; metnin harfi harfine aynı kalması şart.)
+      if (input.fixedFirstScene) scenes[0] = input.fixedFirstScene;
       return {
-        title: (input.fixedTitle ?? parsed.title).trim(),
-        scenes: parsed.scenes,
+        title: (input.fixedTitle ?? fixed.title).trim(),
+        scenes,
+        coverBrief: parsed.coverBrief?.trim(),
         provider: `fal:${LLM_MODEL}`,
       };
     } catch (err) {

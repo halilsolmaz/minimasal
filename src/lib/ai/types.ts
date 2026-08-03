@@ -29,6 +29,11 @@ export type GenerateImageInput = StoryInput & {
   // kind "page" için: hikaye yazarının ürettiği sahne tarifi (imageBrief).
   // Metin-resim uyumu bu alandan gelir; page üretiminde zorunlu.
   sceneBrief?: string;
+  // kind "cover" için: hikaye yazarının ürettiği KAPAK tarifi (coverBrief).
+  // Olmazsa kapak temadan kurulan genel sahneye düşer — o zaman kapaktaki
+  // yaratık hikayedekiyle uyuşmayabilir (2026-07-08 demosunun kusuru:
+  // metin "küçük pembe ejderha" derken kapak "kocaman mor" çizmişti).
+  coverBrief?: string;
 };
 
 export type GenerateImageResult = {
@@ -68,6 +73,10 @@ export type WriteStoryResult = {
   title: string;
   // teaser: tek elemanlı (1. sahne); full: pakete göre 5/8/10 sahne
   scenes?: StoryScene[];
+  // Kapak görselinin İngilizce tarifi — hikayeyi yazan LLM üretir, böylece
+  // kapaktaki yaratık/nesne görünümü metinle aynı olur. Kapak üretilirken
+  // GenerateImageInput.coverBrief olarak geçirilir.
+  coverBrief?: string;
   provider: string;
 };
 

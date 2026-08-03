@@ -109,8 +109,15 @@ export async function runBookGeneration(orderId: string): Promise<void> {
       log(dir, "Kapak önizlemeden alındı.");
     } else {
       log(dir, "Kapak üretiliyor...");
-      cover = (await generateImage({ ...storyInput, kind: "cover", title: story.title }))
-        .image;
+      cover = (
+        await generateImage({
+          ...storyInput,
+          kind: "cover",
+          title: story.title,
+          // Kapak tarifi hikayeden gelir (yaratık rengi/boyutu metinle aynı).
+          coverBrief: story.coverBrief,
+        })
+      ).image;
       log(dir, "Kapak hazır.");
     }
     fs.writeFileSync(path.join(dir, "00-kapak.jpg"), cover);
