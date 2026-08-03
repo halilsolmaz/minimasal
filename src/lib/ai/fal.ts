@@ -415,6 +415,17 @@ export function falRawLlm(systemPrompt: string, prompt: string): Promise<string>
 }
 export { extractJson };
 
+// SADECE dev test ucu için (api/dev/hikaye): modele tam olarak ne
+// gönderdiğimizi görebilmek istem iyileştirmesinin yarısı. Üretim akışı
+// bunları kullanmaz.
+export function debugStoryPrompt(input: WriteStoryInput): {
+  system: string;
+  user: string;
+} {
+  return { system: STORY_SYSTEM_PROMPT, user: storyPrompt(input) };
+}
+export const debugProofread = proofread;
+
 export const falProvider: AiProvider = {
   name: "fal",
 
