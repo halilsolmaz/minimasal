@@ -24,9 +24,11 @@
 
 import {
   PET_TYPES,
+  sectionLabel,
   type RelationshipId,
   type LivingId,
   type CoupleDream,
+  type CoupleOutlineSection,
 } from "@/lib/couple";
 import { falRawImage, falRawLlm, extractJson } from "./fal";
 import { mockRawImage } from "./mock";
@@ -705,6 +707,46 @@ export async function reviewCouplePlan(
   } catch {
     return plan; // editör çökerse üretim durmasın
   }
+}
+
+/* ---------- Kitap iskeleti (önizleme sayfa haritası) ---------- */
+
+// Plandan, kullanıcıya gösterilecek sade iskeleti çıkarır: hangi bölüm,
+// hangi ara sayfa cümlesi, kaç görsel sayfa. Önizleme bunu döndürür;
+// kullanıcı ara sayfa cümlelerini burada düzenler.
+export function outlineFromPlan(plan: CoupleBookPlan): CoupleOutlineSection[] {
+  let aniNo = 0;
+  return plan.sections.map((s) => {
+    if (s.kind === "ani") aniNo++;
+    return {
+      kind: s.kind,
+      label: sectionLabel(s.kind, aniNo),
+      intro: s.intro,
+      sceneCount: s.scenes.length,
+    };
+  });
+}
+
+// Kullanıcının düzenlediği ara sayfa cümlelerini plana uygular.
+// Eşleme SIRAYA göre (bölüm listesi pakete göre değişmez); boş/eksik
+// eleman = AI'ın cümlesi kalsın. Yapı beklenmedik şekilde değiştiyse
+// (bölüm sayısı tutmuyorsa) hiç dokunmaz — yanlış bölüme yazı basmaktansa
+// AI'ın cümlesi kalsın.
+export function applyIntroEdits(
+  plan: CoupleBookPlan,
+  edits: string[] | undefined
+): void {
+  if (!edits?.length) return;
+  if (edits.length !== plan.sections.length) {
+    console.warn(
+      `Ara sayfa düzenlemeleri uygulanmadı: bölüm sayısı tutmuyor (plan ${plan.sections.length}, düzenleme ${edits.length}).`
+    );
+    return;
+  }
+  plan.sections.forEach((s, i) => {
+    const t = edits[i]?.trim();
+    if (t) s.intro = t;
+  });
 }
 
 /* ---------- Görsel üretimi ---------- */

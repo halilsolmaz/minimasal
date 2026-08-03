@@ -33,6 +33,7 @@ import {
   type CoupleWizardState,
   type CouplePet,
   type PetOwner,
+  type CoupleOutlineSection,
 } from "@/lib/couple";
 
 type Preview = {
@@ -42,6 +43,8 @@ type Preview = {
   page1Title?: string;
   page1Bubbles?: string[];
   teaserId?: string;
+  // Kitabın sayfa haritası: bölümler, ara sayfa yazıları, kaç görsel.
+  outline?: CoupleOutlineSection[];
 };
 
 type Analysis = {
@@ -209,6 +212,12 @@ export default function CoupleWizardPage() {
           looks1: data.looks1,
           looks2: data.looks2,
           tanisma: data.tanisma,
+          // Tam plan için tüm malzeme (görsel üretilmez, ek maliyet yok):
+          // kullanıcı bütün ara sayfa yazılarını önizlemede görsün.
+          memories: data.memories,
+          routines: data.routines,
+          dream: data.dream,
+          pages: analysis?.recommendedPages,
         }),
       });
       const json = await res.json();
@@ -223,8 +232,13 @@ export default function CoupleWizardPage() {
         page1Title: json.page1Title,
         page1Bubbles: json.page1Bubbles,
         teaserId: json.teaserId,
+        outline: json.outline,
       };
       setPreview(next);
+      // Düzenleme alanlarını AI önerileriyle hizala (boş = öneri kalsın).
+      if (Array.isArray(json.outline)) {
+        update({ introTexts: json.outline.map(() => "") });
+      }
       try {
         sessionStorage.setItem(COUPLE_PREVIEW_STORAGE_KEY, JSON.stringify(next));
       } catch {
@@ -850,6 +864,18 @@ export default function CoupleWizardPage() {
                         />
                       </div>
                     )}
+                    {preview.outline && preview.outline.length > 0 && (
+                      <PageMap
+                        outline={preview.outline}
+                        edits={data.introTexts}
+                        onEdit={(i, value) => {
+                          const next = [...data.introTexts];
+                          next[i] = value;
+                          update({ introTexts: next });
+                        }}
+                      />
+                    )}
+
                     <p className="mt-4 text-sm text-ink-soft max-w-sm mx-auto">
                       Bu düşük çözünürlüklü, filigranlı bir önizlemedir. Baskı
                       kalitesindeki kitap yalnızca sipariş sonrası hazırlanır.
@@ -893,6 +919,106 @@ export default function CoupleWizardPage() {
 }
 
 /* ---------- Alt bileşenler ---------- */
+
+// Kitabın sayfa haritası (2026-08-03, kurucu kararı): kullanıcı ara sayfa
+// yazılarını burada görür ve beğenmezse kendisi yazar. Görsel sayfalar
+// üretilmediği için bulanık/kilitli kart olarak gösterilir — hangi yazının
+// hangi sayfada olduğu böylece belli olur.
+function PageMap({
+  outline,
+  edits,
+  onEdit,
+}: {
+  outline: CoupleOutlineSection[];
+  edits: string[];
+  onEdit: (index: number, value: string) => void;
+}) {
+  let pageNo = 0;
+  return (
+    <div className="mt-8 text-left">
+      <p className="text-center text-sm font-bold text-ink">
+        Kitabınızın sayfa düzeni
+      </p>
+      <p className="mt-1 mb-4 text-center text-xs text-ink-soft max-w-md mx-auto">
+        Her bölüm, italik bir yazı sayfasıyla açılır. Bu yazıları biz önerdik —
+        beğenmezseniz üstüne kendi cümlenizi yazabilirsiniz. Sayfa numaraları
+        seçeceğiniz kitap boyutuna göre biraz kayabilir.
+      </p>
+
+      <div className="space-y-3">
+        {outline.map((section, i) => {
+          const introPage = ++pageNo;
+          const scenePages = Array.from(
+            { length: section.sceneCount },
+            () => ++pageNo
+          );
+          return (
+            <div
+              key={i}
+              className="rounded-2xl border border-ink/10 bg-white/60 p-4"
+            >
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-[11px] font-bold text-primary-dark">
+                  {section.label}
+                </span>
+                <span className="text-[11px] font-semibold text-ink-soft">
+                  Sayfa {introPage} · yazı sayfası
+                </span>
+              </div>
+
+              <textarea
+                value={edits[i] ?? ""}
+                onChange={(e) => onEdit(i, e.target.value)}
+                rows={2}
+                maxLength={140}
+                placeholder={section.intro}
+                className="mt-2 w-full resize-none rounded-xl border border-ink/15 bg-cream px-4 py-3 text-sm italic outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+              />
+              <p className="mt-1 text-[11px] text-ink-soft">
+                {edits[i]?.trim()
+                  ? "✏️ Kendi cümleniz kullanılacak."
+                  : "Boş bırakırsanız yukarıdaki önerimiz kullanılır."}
+              </p>
+
+              {scenePages.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {scenePages.map((p, j) => (
+                    <div
+                      key={p}
+                      className="relative h-20 w-16 overflow-hidden rounded-lg border border-ink/10"
+                      title={`Sayfa ${p} — resimli sayfa`}
+                    >
+                      {/* Üretilmemiş sayfa: bulanık, kilitli görünüm */}
+                      <div
+                        className="absolute inset-0 blur-[6px]"
+                        style={{
+                          background:
+                            j % 2 === 0
+                              ? "linear-gradient(135deg,#e9d8c4,#cfd9e8 60%,#e6cfd8)"
+                              : "linear-gradient(135deg,#d8e4d2,#efdcc8 60%,#cdd6ea)",
+                        }}
+                      />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className="text-sm">🔒</span>
+                        <span className="mt-0.5 text-[10px] font-bold text-ink/70">
+                          {p}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="mt-3 text-center text-[11px] text-ink-soft">
+        🔒 Resimli sayfalar sipariş sonrası hazırlanır.
+      </p>
+    </div>
+  );
+}
 
 function ChipButton({
   active,

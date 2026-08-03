@@ -150,6 +150,8 @@ export default function CheckoutPage() {
               tanisma: couple!.tanisma,
               memories: filledMemories(couple!),
               routines: couple!.routines,
+              // Kullanıcının önizlemede düzenlediği ara sayfa yazıları.
+              introTexts: couple!.introTexts,
               dream:
                 couple!.dream.years !== null && couple!.dream.description.trim()
                   ? couple!.dream

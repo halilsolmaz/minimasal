@@ -127,7 +127,31 @@ export type CoupleWizardState = {
   memories: string[]; // önemli anılar — her eleman ayrı bir anı bloğu
   routines: string; // rutinler (madde madde tek alan)
   dream: CoupleDream; // ortak gelecek hayali (opsiyonel bölüm)
+  // Kullanıcının ara sayfa yazılarına yaptığı DÜZENLEMELER (2026-08-03,
+  // kurucu kararı). Önizlemedeki bölüm sırasıyla hizalı; boş eleman =
+  // "AI'ın önerdiği cümle kalsın". Bölümler pakete göre değişmediği için
+  // (bölüm = tanışma + her anı + rutin + hayal) bu düzenlemeler hangi
+  // paket seçilirse seçilsin geçerli kalır.
+  introTexts: string[];
 };
+
+/* ---------- Kitap iskeleti (önizlemede gösterilen sayfa haritası) ---------- */
+
+// Önizleme, görsel üretmeden tüm kitabın planını çıkarır; kullanıcı ara
+// sayfa yazılarını burada görür ve isterse değiştirir.
+export type CoupleOutlineSection = {
+  kind: "tanisma" | "ani" | "rutin" | "hayal";
+  label: string; // "Tanışma", "Anı 1", "Rutinler", "Hayal"
+  intro: string; // AI'ın önerdiği italik ara sayfa cümlesi
+  sceneCount: number; // bu bölümde kaç görsel sayfa var
+};
+
+export function sectionLabel(kind: string, aniNo: number): string {
+  if (kind === "tanisma") return "Tanışma";
+  if (kind === "rutin") return "Rutinler";
+  if (kind === "hayal") return "Hayalimiz";
+  return `Anı ${aniNo}`;
+}
 
 export const COUPLE_STORAGE_KEY = "minimasal-cift";
 export const COUPLE_PREVIEW_STORAGE_KEY = "minimasal-cift-onizleme";
@@ -150,6 +174,7 @@ export const initialCoupleState: CoupleWizardState = {
   nickname2: "",
   looks1: "",
   looks2: "",
+  introTexts: [],
   tanisma: "",
   memories: [""],
   routines: "",

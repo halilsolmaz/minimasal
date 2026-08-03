@@ -86,6 +86,9 @@ export type CoupleOrderData = {
   tanisma: string; // tanışma hikayesi
   memories: string[]; // önemli anılar (her biri ayrı blok)
   routines?: string; // rutinler
+  // Kullanıcının önizlemede düzenlediği ara sayfa (bölüm açılış) yazıları.
+  // Bölüm sırasıyla hizalı; boş eleman = AI'ın önerdiği cümle kullanılır.
+  introTexts?: string[];
   dream?: {
     years: number | null;
     place: string;

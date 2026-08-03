@@ -15,6 +15,7 @@ import { generateImage, writeStory } from "./ai";
 import {
   writeCouplePlan,
   reviewCouplePlan,
+  applyIntroEdits,
   generateCoupleCover,
   generateCoupleScene,
   sceneBubbles,
@@ -266,6 +267,14 @@ async function runCoupleBook(
     let plan = await writeCouplePlan(input, material, targetImages, fixedFirst);
     log(dir, "Editör geçişi: plan kaynakla karşılaştırılıyor...");
     plan = await reviewCouplePlan(input, material, plan);
+    // Kullanıcı önizlemede ara sayfa yazılarını düzenlediyse AI'ın önerisi
+    // yerine ONUN cümleleri basılır (editörden SONRA — editör kendi dil
+    // düzeltmesini kullanıcının cümlesine uygulamasın, o ne yazdıysa o).
+    const introEdits = c.introTexts?.filter((t) => typeof t === "string");
+    if (introEdits?.some((t) => t.trim())) {
+      applyIntroEdits(plan, introEdits);
+      log(dir, "Kullanıcının düzenlediği ara sayfa yazıları uygulandı.");
+    }
     fs.writeFileSync(
       path.join(dir, "plan.json"),
       JSON.stringify({ title, plan }, null, 2),

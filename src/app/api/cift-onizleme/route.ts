@@ -8,6 +8,7 @@ import { overlayBubbles } from "@/lib/ai/bubbles";
 import {
   writeCouplePlan,
   reviewCouplePlan,
+  outlineFromPlan,
   generateCoupleCover,
   generateCoupleScene,
   sceneBubbles,
@@ -42,7 +43,13 @@ type CouplePreviewRequest = {
   nickname2?: string;
   looks1?: string;
   looks2?: string;
-  tanisma: string; // önizleme sahnesi bundan çıkarılır
+  // Önizleme artık TÜM kitabın planını çıkarır (görselsiz, ek maliyeti
+  // yok): kullanıcı ara sayfa yazılarını görüp düzenleyebilsin diye.
+  tanisma: string;
+  memories?: string[];
+  routines?: string;
+  dream?: { years: number | null; place: string; description: string } | null;
+  pages?: number; // analizden gelen önerilen kademe (sayfa numaraları için)
 };
 
 const MAX_PHOTO_DATA_CHARS = 2_000_000;
@@ -145,9 +152,23 @@ export async function POST(request: Request) {
     };
     const title = coupleTitle(input);
 
-    // Tanışma hikayesinden EN GÜZEL tek sahneyi çıkar (önizleme sayfası).
-    const material = { tanisma: body.tanisma.trim(), memories: [], routines: "" };
-    let previewPlan = await writeCouplePlan(input, material, 1);
+    // TÜM kitabın planı çıkarılır (yalnız metin — görsel maliyeti yok).
+    // Böylece kullanıcı önizlemede bütün ara sayfa yazılarını görür ve
+    // beğenmediğini kendisi değiştirir (kurucu kararı 2026-08-03).
+    const material = {
+      tanisma: body.tanisma.trim(),
+      memories: (body.memories ?? []).filter((m) => m.trim().length >= 20),
+      routines: body.routines?.trim() ?? "",
+      dream: body.dream?.description?.trim() ? body.dream : null,
+    };
+    const pages = Number.isFinite(body.pages) ? Number(body.pages) : 15;
+    const sectionCount =
+      1 +
+      material.memories.length +
+      (material.routines ? 1 : 0) +
+      (material.dream ? 1 : 0);
+    const targetImages = Math.max(3, pages - sectionCount);
+    let previewPlan = await writeCouplePlan(input, material, targetImages);
     // Editör geçişi burada da şart: bu sahnenin baloncuğu SUNUCUDA görsele
     // basılıyor ve sipariş gelirse o görsel AYNEN kitaba giriyor — dil hatası
     // sonradan düzeltilemez. (Ucuz LLM çağrısı; hata olursa plan aynen kalır.)
@@ -187,6 +208,8 @@ export async function POST(request: Request) {
       page1Image,
       page1Title: scene.title,
       page1Bubbles: sceneBubbles(scene).map((b) => b.text),
+      // Sayfa haritası: hangi bölüm, hangi ara sayfa cümlesi, kaç görsel.
+      outline: outlineFromPlan(previewPlan),
     });
   } catch (err) {
     console.error("Çift önizlemesi üretilemedi:", err);
