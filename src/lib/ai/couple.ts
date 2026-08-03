@@ -279,6 +279,14 @@ const SEGMENT_SYSTEM_PROMPT =
   "Türkiye'ye özgü öğeleri koru (pide fırını, ince belli çay bardağı, tramvay...).\n" +
   "8) Baloncuk her sahnede ZORUNLU DEĞİL: sadece doğal olduğu yerde 1-2 kısa Türkçe söz " +
   "(≤60 karakter, klişe değil); diğerlerinde bubbles boş dizi.\n" +
+  "   - BALONCUK BİLGİ UYDURAMAZ. Yalnızca anlatımda GEÇEN ya da o andan doğrudan çıkan " +
+  "şeyler söylenebilir. Kullanıcının söylemediği bir tercih/duygu/görüş yakıştırma. " +
+  "ÖRNEK YANLIŞ: kullanıcı 'internet çekmediği için tek kayıtlı şarkıyı dinliyorduk' " +
+  "demişken baloncuğa 'Bu şarkıyı çok seviyorum' yazmak — o kişinin şarkıyı sevdiği " +
+  "anlatımda YOK, sen uydurdun. Burada ya baloncuk olmaz ya da anlatımdaki gerçeği " +
+  "söyler ('Bir tek bu şarkı kayıtlı'). Emin değilsen baloncuğu BOŞ bırak.\n" +
+  "   - Baloncuğu KİM söylüyorsa ve kime söylüyorsa, ikisi de o sahnenin görselinde " +
+  "OLMALI. Görünmeyen birine seslenen baloncuk anlamsız kalır.\n" +
   "9) İtalik ara sayfa cümleleri (intro): kısa (≤100 karakter), sıcak, romantik ama " +
   "klişeye kaçmayan TÜRKÇE cümleler; bölümün içeriğine özel olsun.\n" +
   "10) GÖRÜNÜM ve NESNELERİ doğru dağıt (rastgelelik önemli):\n" +
@@ -299,6 +307,21 @@ const SEGMENT_SYSTEM_PROMPT =
   "ressam kıyafeti onlardan alır ('casual attire', 'a red dress' gibi ifadeler YAZMA). İki istisna: " +
   "(a) anlatımda kıyafet AÇIKÇA geçiyorsa aynen taşı; (b) sahne zorunlu kılıyorsa yalnız o " +
   "gerekliliği yaz (denizde 'swimsuit', karda 'winter coat').\n" +
+  "13) BÖLÜM İÇİ AKIŞ (kurucu kararı 2026-08-03). Bir anıdan/tanışmadan birden çok sahne " +
+  "çıkardığında o sahneler AYNI OLAYIN ardışık anlarıdır — birbirinden kopuk kartpostallar " +
+  "DEĞİL. Okuyan kişi akışı hissetmeli:\n" +
+  "   - KRONOLOJİ: sahneler anlatımdaki sıraya göre ilerler, ileri geri atlamaz.\n" +
+  "   - ZAMAN VE IŞIK: aynı gün/gece geçiyorsa ışık da o yönde ilerler (öğleden sonra → " +
+  "gün batımı → gece). Geriye sıçrama olmaz; sahne 3 gece ise sahne 4 sabah olamaz.\n" +
+  "   - SÜREKLİLİK: o olaya ait mekân ve nesneler sahneden sahneye TAŞINIR (aynı araba, aynı " +
+  "battaniye, aynı sahil, aynı kafe köşesi) — her sahnede yeniden tarif et ki ressam aynısını " +
+  "çizsin (her görsel ayrı ayrı üretiliyor, önceki sayfayı GÖRMÜYOR).\n" +
+  "   - BAĞ CÜMLESİ: uygun düştüğünde sceneBrief'e aynı ana ait olduğunu belirt ('later that " +
+  "same night', 'still on the same beach').\n" +
+  "   - DUYGU YAYI: sahneler duygusal olarak İLERLER (merak → yakınlaşma → huzur); aynı duyguyu " +
+  "üç kere tekrarlama.\n" +
+  "   - Kıyafet konusunda kural 12 geçerli (uydurma), ama anlatımda kıyafet geçiyorsa o bölümün " +
+  "TÜM sahnelerinde aynı cümleyle tekrarla — aynı gece içinde kıyafet değişemez.\n" +
   "İstenen JSON'un dışına asla çıkma.";
 
 function materialBlock(material: CoupleMaterial): string {
@@ -576,6 +599,14 @@ const REVIEW_SYSTEM_PROMPT =
   "zorunlu kıldığı kıyafet (mayo/mont) ve 'kişisel görünüm notu' olarak verilen detaylar.\n" +
   "12) Her sceneBrief 2-3 cümle mi ve sonunda kadraj ('close-up'/'medium shot'/'wide shot') var mı? " +
   "Yoksa ekle. Kadrajlar kitap boyunca çeşitli mi, yoksa hepsi aynı mı? Aynıysa dağıt.\n" +
+  "13) BÖLÜM İÇİ AKIŞ: aynı bölümdeki sahneler tek bir olayın ardışık anları gibi duruyor mu? " +
+  "Kontrol et ve düzelt: kronoloji anlatımdaki sırada mı; ışık/zaman ileri doğru mu akıyor " +
+  "(gece sahnesinden sonra sabah sahnesi gelmemeli); o olayın mekânı ve nesneleri (araba, " +
+  "battaniye, sahil) her sahnede yeniden tarif edilmiş mi — ressam önceki sayfayı görmüyor, " +
+  "tarif edilmeyen nesne kaybolur; duygu tekrar mı ediyor yoksa ilerliyor mu.\n" +
+  "14) BALONCUKLAR BİLGİ UYDURMUŞ MU? Anlatımda olmayan bir tercih/duygu/görüş söyleten " +
+  "baloncuğu SİL ya da anlatımdaki gerçekle değiştir. Baloncuğu söyleyen ve dinleyen kişi " +
+  "o sahnenin görselinde var mı? Yoksa baloncuğu kaldır.\n" +
   "Sahne SAYISINI ve bölüm yapısını DEĞİŞTİRME — sadece içerikleri düzelt. " +
   "İstenen JSON'un dışına asla çıkma.";
 
