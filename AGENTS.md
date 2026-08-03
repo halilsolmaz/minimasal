@@ -185,17 +185,47 @@ npm run dev            # http://localhost:3000
 
 ---
 
-## 9. EN SON DURUM — Part 2 devir notu (2026-08-03)
+## 9. EN SON DURUM — Part 2 (2026-08-03)
 
-> Part 1 oturumu burada bitti. Yeni session "MiniMasal Part 2 devam" ile başlıyorsa
-> **bu bölüm kaldığımız yerdir.**
+> Yeni session "MiniMasal Part 2 devam" ile başlıyorsa **bu bölüm kaldığımız yerdir.**
+
+### Part 2'nin ilk turunda yapılanlar (2 commit, push'lu)
+
+Kural denetimi: *"AGENTS.md'de yazan ama kodda karşılığı olmayan"* kuralları aradım —
+dört tane çıktı, dördü de kapatıldı. Ortak desen: **kapak istemleri hikayeden
+beslenmiyordu ve sayfaya basılan Türkçe hiç denetlenmiyordu.**
+
+- `e1e5120` **Çocuk masalı.** (a) `coverPrompt` hikayeyi hiç görmüyordu — temadan
+  kurulan genel cümleyi (`sceneFor()`) kullanıyordu. 2026-07-08 demosundaki
+  "metin küçük pembe ejderha, kapak kocaman mor" kusurunun kaynağı buydu;
+  `STORY_SYSTEM_PROMPT`'a eklenen tutarlılık kuralı bunu **düzeltemezdi**.
+  Hikaye LLM'i artık `coverBrief` de üretiyor, kapak istemi ondan besleniyor.
+  (b) **Türkçe düzelti adımı** eklendi (notlarda "eklenecek" yazıyordu ama kodda
+  yoktu): görsellerden önce ikinci ucuz LLM çağrısı (~$0.001) sayfa metinleri +
+  başlıktaki ek/imla hatalarını düzeltir ("gökkuşağa"→"gökkuşağına", "Pamuk
+  de"→"da"). İçeriğe dokunmaz; herhangi bir aksilikte sessizce orijinale döner.
+  Önizleme metni siparişte aynen kullanıldığı için teaser'da da çalışır.
+- `b98eacf` **Çift kitabı** (aynı sınıf hatalar). (a) `generateCoupleCover` hikayeyi
+  görmüyordu → plan LLM'i artık `cover` (brief + pets) üretiyor; plan zaten
+  kapaktan önce hazır olduğu için **ek çağrı yok**. Kapağa tüm evcil dostları
+  zorla koyma da kalktı. (b) Editör geçişine **Türkçe dil kuralı** eklendi — ara
+  sayfa (intro) cümleleri ve baloncuk metinleri sunucuda basılıyor, yani AI değil
+  BİZ yazıyoruz ama denetimi yoktu. (c) **Önizleme editör geçişini atlıyordu**;
+  o sahnenin baloncuğu görsele basılıp saklanıyor ve siparişte aynen kitaba
+  giriyor → dil hatası sonradan düzeltilemez, artık önizleme de editörden geçiyor.
+  (d) Boş baloncuk metni ayıklanıyor (ölçüldü: sharp **çökmüyor**, görünmez kutu
+  basıp asıl baloncuğu aşağı kaydırıyor).
+
+Doğrulama: `tsc --noEmit` temiz, `next build` geçti, boş-baloncuk davranışı
+eski/yeni kod karşılaştırmasıyla ölçüldü. **Gerçek AI üretimi yapılmadı** —
+kurucu 2026-08-03'te "şimdilik harcama yok, test yok" dedi.
 
 ### Repo durumu
-- Dal `main`, **her şey `origin/main`'e push'lu** (son commit `16d9b36`).
+- Dal `main`, **her şey `origin/main`'e push'lu** (son commit `b98eacf`).
 - Çalışma ağacında bilerek commit'lenmemiş tek dosya: `.claude/launch.json` (yerel dev portu).
 - **Port notu:** kurucunun makinesinde **port 3000'i başka bir proje (MT Evaluation/WatchMQM) tutuyor**, o yüzden `launch.json`'da minimasal-dev **3001**'e alındı → `http://localhost:3001`.
 
-### Part 1'in son turunda yapılanlar (7 commit, hepsi push'lu)
+### Part 1'in son turunda yapılanlar (7 commit, hepsi push'lu — arka plan)
 Çocuk masalı — kurucunun **ilk gerçek AI demosu** (Defne, 3 yaş, 2026-07-08) eleştirilerinden:
 - `a3006d4` **Yaş/pedagoji/tutarlılık:** ses oyunu (fışşş/vızzz) yalnız 3-4 yaşta + gerçekçi olmak zorunda, 5-6'da çok az, **7-9'da yasak**; kahraman zorluğu tek hamlede/sihirle çözemez (çaba→takılma→yeniden deneme→yardım→öğrenme, yaşla artan didaktiklik); sihirli yaratık/nesne renk+boyutu metinde ve TÜM imageBrief'lerde sabit.
 - `1b24cf7` **Foto bütçesi:** çocuk 3-5 (min 3 ZORUNLU), yan karakter 1-3, birlikte foto YOK → en kötü 5+3×3=14.
@@ -203,17 +233,32 @@ npm run dev            # http://localhost:3000
 Çift kitabı: `7ad4834` (evcil dost tür+mekân doğallığı), `df27ca0` (ayırt edici özellikler `looks1/looks2`), `b5b0bf9` (doğal dağılım ilkesi).
 Site: `b22dd84` (ana sayfa iki ürünü **eşit ağırlıkta** sunar — hero/header/metadata nötrlendi, her ürüne kendi bölümü + fiyatları).
 
-### ⚠️ En kritik açık konu
-**Yukarıdaki kalite kurallarının HİÇBİRİ gerçek AI ile denenmedi** — hepsi mock ile doğrulandı (mock bu kuralları göstermez). FAL_KEY tanımlı, yani test yapılabilir.
+### ⚠️ En kritik açık konu (DEĞİŞMEDİ)
+**Kalite kurallarının HİÇBİRİ hâlâ gerçek AI ile denenmedi** — hepsi mock + derleme
+ile doğrulandı, mock bu kuralların hiçbirini göstermez. FAL_KEY tanımlı, yani test
+teknik olarak yapılabilir; kurucu 2026-08-03'te **erteledi** (harcama yok).
 
-**Önerilen ilk iş — regresyon testi:** Defne girdisiyle yeniden kitap üret, 2026-07-08 çıktısıyla karşılaştır (`C:\Users\halil\Desktop\minimasal-kitaplar\80C80813` — hikaye.json + 8 sahne + kapak duruyor). Bakılacak üç şey:
+**Beklemedeki iş — regresyon testi:** Defne girdisiyle yeniden kitap üret,
+2026-07-08 çıktısıyla karşılaştır (`C:\Users\halil\Desktop\minimasal-kitaplar\80C80813`
+— hikaye.json + 8 sahne + kapak duruyor). Bakılacak dört şey:
 1. Ses oyunları düzeldi mi (3 yaş için gerçekçi mi; "rüzgar fışşş" gibi uydurma eşleşme kalktı mı)
-2. Ejderha tutarlılığı (eski çıktıda metin "pembe, küçük" derken kapak/sahnelerde "mor, kocaman"dı)
+2. Ejderha tutarlılığı (eski çıktıda metin "pembe, küçük" derken kapak "mor, kocaman"dı) — artık `coverBrief` var
 3. Pedagoji (eski çıktıda Defne her şeyi kolayca başarıyordu; artık zorlanmalı)
-- **Uyarı:** gerçek üretim ≈ $0.90-1 ve birkaç dakika. Min 3 foto kuralı yüzünden `defos.jpg` tek başına YETMEZ — Defne'nin 2 fotoğrafı daha lazım.
+4. Dil hataları (eski çıktıda "Pamuk **de** gelmiş" — düzelti adımı yakalamalı)
+- **İki engel:** (a) gerçek üretim ≈ $0.90-1 ve birkaç dakika; (b) min 3 foto kuralı
+  yüzünden `defos.jpg` tek başına YETMEZ — Defne'nin 2 fotoğrafı daha lazım
+  (Masaüstünde yok). Kurucu isterse tek fotoyla test için `MIN_CHILD_PHOTOS`
+  geçici 1 yapılabilir; 2026-07-08 çıktısı da tek fotoyla üretilmişti.
+- **DİKKAT:** dev sunucusu `.env.local`'deki FAL_KEY ile açılır ve `AI_PROVIDER`
+  boştur → önizleme/sipariş uçlarına dokunmak **gerçek para harcar**. Bedava test
+  için `AI_PROVIDER=mock` şart.
 
 ### Kurucunun ertelediği/bekleyen kararlar
 - **Min 3 foto zorunluluğunun dönüşüm riski:** 1-2 fotoğrafı olan müşteri ürünü hiç kullanamıyor. Kurucu "şimdilik dursun" dedi (2026-07-22). Yumuşatmak tek sabit: `MIN_CHILD_PHOTOS` (characters.ts).
 - **İç sayfa maliyet düşürme** testi (Nano Banana 2 / FLUX Kontext pro) — kurucu "yap" deyince.
 - **Çift kitabı gerçek AI testi:** kurucunun gerçek örnek malzemesi hazır (Halil & Buse; İzmir, kediler Bihter & İrmik) ama v2 revizyonu sonrası hiç üretilmedi.
 - Canlıya çıkış paketi (ödeme/şirket/hukuk) kurucu tarafından ertelendi.
+- **`npm run lint` 10 hata veriyor (hepsi eski, üretimi engellemiyor):** 5'i
+  `ai/couple.ts`'teki `useMock()` adının React hook kuralını yanlış tetiklemesi
+  (`isMock` yapılınca geçer), kalanı `Header.tsx`'te `<a>` → `<Link>` ve
+  `siparis/page.tsx`'te effect içinde `setState`. Temizlik işi, sırası gelince.
