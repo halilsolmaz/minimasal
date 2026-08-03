@@ -17,8 +17,10 @@ import {
 import {
   writeCouplePlan,
   reviewCouplePlan,
+  ensureEveryPetAppears,
   type CoupleInput,
   type CoupleMaterial,
+  type CoupleBookPlan,
 } from "@/lib/ai/couple";
 import { PACKAGES, COUPLE_PACKAGES } from "@/lib/brand";
 
@@ -53,11 +55,33 @@ export async function POST(request: Request) {
       });
     }
 
+    // Evcil dost garantisini AI ÇAĞRISI YAPMADAN sınar: hazır bir plan
+    // verilir, fonksiyondan geçmiş hali döner (maliyet sıfır).
+    if (body.tur === "petkontrol") {
+      const plan = body.plan as CoupleBookPlan;
+      const pets = (body.input as CoupleInput).pets ?? [];
+      const once = plan.sections.flatMap((s) =>
+        s.scenes.map((sc) => ({ sahne: sc.title, pets: sc.pets ?? [] }))
+      );
+      ensureEveryPetAppears(plan, pets);
+      return Response.json({
+        tur: "petkontrol",
+        oncesi: once.filter((s) => s.pets.length > 0),
+        sonrasi: plan.sections
+          .flatMap((s) => s.scenes)
+          .filter((sc) => (sc.pets ?? []).length > 0)
+          .map((sc) => ({ sahne: sc.title, pets: sc.pets })),
+      });
+    }
+
     if (body.tur === "cift") {
       const input = body.input as CoupleInput;
       const material = body.material as CoupleMaterial;
+      // Test kolaylığı: kademe dışı bir sayfa sayısı da denenebilsin.
       const pages =
-        COUPLE_PACKAGES.find((p) => p.id === body.packageId)?.pages ?? 10;
+        typeof body.pages === "number"
+          ? body.pages
+          : (COUPLE_PACKAGES.find((p) => p.id === body.packageId)?.pages ?? 10);
       // Kademe = toplam iç sayfa; ara sayfalar da sayılır (bkz. bookRun).
       const sectionCount =
         1 +

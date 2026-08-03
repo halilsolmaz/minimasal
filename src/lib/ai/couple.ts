@@ -150,7 +150,82 @@ function refMapForScene(
   // demek yanlış — dostun yokluğu doğal olmalı, garanti değil). Referans
   // fotoğrafı eklenmediği için model dostu kendiliğinden eklemez; sahnede
   // dostun olup olmayacağına planlama aşamasında (tür + mekân) karar verilir.
+
+  // HANGİ KAYNAK KAZANIR — koşulsuz, her görsel isteğine girer. Plan LLM'ine
+  // "görünüm uydurma" kuralı verdik ama uyup uymadığı onun insafına kalıyor;
+  // burası LLM'e hiç güvenmeyen kat (çocuk masalındaki ile aynı mantık).
+  description +=
+    "IMPORTANT — SOURCE OF TRUTH: how these real people and pets LOOK comes " +
+    "ONLY from the reference photos above (hair, eye and fur colour, skin tone, " +
+    "age, height, body size, distinguishing features, and their clothing unless " +
+    "the scene description explicitly requires otherwise). If the scene " +
+    "description below states any physical attribute for them, IGNORE that " +
+    "attribute and follow the photos instead. The scene description only tells " +
+    "you what they DO, where they are and how they feel. ";
   return { refs, description };
+}
+
+/* ---------- Evcil dost garantisi ---------- */
+
+// Müşteri bir dostun fotoğrafını yüklediyse o dost kitapta EN AZ BİR sahnede
+// görünmek ZORUNDA (kurucu kararı 2026-08-03; testte İrmik 14 sahnenin
+// hiçbirinde yoktu). İstemde kural var ama LLM'e güvenmiyoruz.
+//
+// Zorla her yere koymuyoruz: kedi/kuş yalnız İÇ MEKÂN sahnesine eklenebilir
+// (tür+mekân kuralı). Uygun sahne bulunamazsa sahil sahnesine kedi koymaktansa
+// UYARI verip bırakırız — yanlış yere konmuş bir kedi, eksik kediden kötüdür.
+//
+// SINIR: burası son çare. Sahnenin KİMİN evi olduğunu tarif metninden güvenilir
+// biçimde çıkaramıyoruz, yani dost sahibinin evi yerine partnerin evindeki bir
+// sahneye düşebilir. Doğru yerleştirmeyi istem kuralı yapar (plan LLM'i kimin
+// dostu olduğunu bilir); burası yalnızca "hiç görünmeme"yi engeller.
+// Sadece GÜÇLÜ iç mekân işaretleri. Zayıf kelimeler bilerek yok:
+// "home" → "work-from-home attire" (ölçüldü: kediyi tramvay durağına koydu),
+// "window" → "green hills visible through windows" (araba içi),
+// "flat" → "flat surface". Bir yanlış eşleşme, eksik kediden kötüdür.
+const INDOOR_HINTS =
+  /\b(indoors?|interior|living room|bedroom|kitchen|apartment|cottage|sofa|couch|armchair|coffee table)\b/i;
+// İç mekân kelimesi geçse bile bu işaretler varsa sahne DIŞARIDADIR.
+const OUTDOOR_HINTS =
+  /\b(beach|sea|seaside|shore|road|street|highway|café|cafe|restaurant|car|driving|tram|mountain|forest|sky|outdoors?|park|garden|coastal)\b/i;
+
+export function ensureEveryPetAppears(
+  plan: CoupleBookPlan,
+  pets: CouplePetInput[]
+): void {
+  if (pets.length === 0) return;
+  const allScenes = plan.sections.flatMap((s) => s.scenes);
+  // Önizleme tek sahnelik bir "plan" üretir; orada "her dost en az bir kez"
+  // kuralı anlamsız (kitabın tamamı değil). Sadece gerçek kitapta uygula.
+  if (allScenes.length < 3) return;
+
+  const seen = new Set(
+    allScenes.flatMap((s) => (s.pets ?? []).map((n) => n.toLowerCase()))
+  );
+  for (const pet of pets) {
+    if (seen.has(pet.name.toLowerCase())) continue;
+    const indoorOnly = pet.typeId === "kedi" || pet.typeId === "kus";
+    const candidates = indoorOnly
+      ? allScenes.filter(
+          (s) =>
+            INDOOR_HINTS.test(s.sceneBrief) && !OUTDOOR_HINTS.test(s.sceneBrief)
+        )
+      : allScenes;
+    if (candidates.length === 0) {
+      console.warn(
+        `Evcil dost "${pet.name}" hiçbir sahnede yok ve uygun iç mekân sahnesi bulunamadı — eklenmedi.`
+      );
+      continue;
+    }
+    // Dostların hepsi tek sahneye yığılmasın: en az dolu olanı seç.
+    const target = candidates.reduce((a, b) =>
+      (a.pets?.length ?? 0) <= (b.pets?.length ?? 0) ? a : b
+    );
+    target.pets = [...(target.pets ?? []), pet.name];
+    console.warn(
+      `Evcil dost "${pet.name}" hiçbir sahnede geçmemiş, "${target.title}" sahnesine eklendi.`
+    );
+  }
 }
 
 // Coğrafya + tutarlılık bloğu: her sahne istemine eklenir.
@@ -195,6 +270,10 @@ const SEGMENT_SYSTEM_PROMPT =
   "   - KÖPEK hem evde hem dışarıda (yürüyüş, sahil, araba yolculuğu) doğal olabilir; uygun " +
   "düştüğü sahnelere yaz, yine her sahneye değil.\n" +
   "   - Doğal görünmeyen hiçbir sahneye dost sokma; o sahnelerde 'pets' boş dizi olur.\n" +
+  "   - AMA ŞU ŞART: verilen HER evcil dost kitapta EN AZ BİR sahnede görünmeli. " +
+  "Müşteri o dostun fotoğrafını özellikle yükledi; kitapta hiç çıkmaması kabul edilemez. " +
+  "En doğal yeri SAHİBİNİN evinde geçen bir sahnedir (dostlar listesinde kimin olduğu yazıyor). " +
+  "Uygun bir iç mekân sahnesi yoksa bir tane olmasını gözet — ama sahil/yol/kafe sahnesine kedi SOKMA.\n" +
   "7) Özel mekân adlarını ve ayırt edici özellikleri sceneBrief'e AYNEN İngilizce tarifle " +
   "yaz — tabela metni dahil (örn. a café sign reading \"Gardiyanbucks\", a parody of Starbucks). " +
   "Türkiye'ye özgü öğeleri koru (pide fırını, ince belli çay bardağı, tramvay...).\n" +
@@ -210,6 +289,16 @@ const SEGMENT_SYSTEM_PROMPT =
   "karede tekrarlamak görseli mahveder.\n" +
   "   - Bu 'doğal dağıt, her kareye koyma' ilkesi tüm nesneler/kıyafetler için geçerli. TEK istisna: " +
   "'değişmeyen detaylar' (araba/ev) — onlar bilerek her sahnede AYNI kalır.\n" +
+  "11) GÖRÜNÜM UYDURMA. Çiftin ve evcil dostların FOTOĞRAFI ressama ayrıca gidiyor; sen o " +
+  "fotoğrafları GÖRMÜYORSUN. Bu yüzden saç/göz/tüy rengi, ten, boy, kilo, beden, yaş, ırk gibi " +
+  "hiçbir fiziksel niteliği yazma — uydurduğun şey fotoğrafla çelişirse ressam iki zıt komut alır " +
+  "ve görsel bozulur. İsimleriyle an, ne YAPTIKLARINI ve NE HİSSETTİKLERİNİ tarif et. " +
+  "İstisna: sana 'kişisel görünüm notu' olarak açıkça verilen detaylar (dövme, gözlük vb.) — " +
+  "onları kural 10'a göre dağıt.\n" +
+  "12) KIYAFET de uydurma ve tek kıyafete kilitleme — müşteri birden çok fotoğraf yüklüyor, " +
+  "ressam kıyafeti onlardan alır ('casual attire', 'a red dress' gibi ifadeler YAZMA). İki istisna: " +
+  "(a) anlatımda kıyafet AÇIKÇA geçiyorsa aynen taşı; (b) sahne zorunlu kılıyorsa yalnız o " +
+  "gerekliliği yaz (denizde 'swimsuit', karda 'winter coat').\n" +
   "İstenen JSON'un dışına asla çıkma.";
 
 function materialBlock(material: CoupleMaterial): string {
@@ -416,10 +505,17 @@ export async function writeCouplePlan(
       : "") +
     `\nTOPLAM SAHNE (görsel) SAYISI TAM OLARAK ${fixedFirst ? targetImages - 1 : targetImages} olmalı ` +
     `(bölümlere sen dağıt; intro sayfaları bu sayıya dahil değil).${fixedNote}\n\n` +
-    `Her sahne için: "title" (2-4 kelime Türkçe), "sceneBrief" (İngilizce resim tarifi, 1-2 cümle; ` +
-    `kişileri "${input.partner1.name}" ve "${input.partner2.name}" olarak adlandır; mekân/kıyafet/mevsim ` +
-    `detaylarını anlatımdan AYNEN taşı), "bubbles" (sadece doğalsa), "pets" (bu sahnede görünen ` +
-    `evcil dost isimleri, yoksa boş dizi).\n` +
+    `Her sahne için: "title" (2-4 kelime Türkçe), ` +
+    `"sceneBrief" (İngilizce resim tarifi — bu tarif sayfadaki resmin TEK kaynağı, ` +
+    `KISA TUTMA: 2-3 cümle. Şunları içersin: ne oluyor, mekân ve o mekânın somut ` +
+    `detayları, günün hangi saati/nasıl bir ışık, sahnenin duygusu, sonda KADRAJ. ` +
+    `Kişileri "${input.partner1.name}" ve "${input.partner2.name}" olarak adlandır; ` +
+    `mekân/mevsim detaylarını anlatımdan AYNEN taşı), ` +
+    `"bubbles" (sadece doğalsa), "pets" (bu sahnede görünen evcil dost isimleri, ` +
+    `yoksa boş dizi).\n` +
+    `KADRAJ: her sceneBrief'in sonunda iki-üç kelimeyle belirt ('close-up', ` +
+    `'medium shot', 'wide shot') ve kitap boyunca ÇEŞİTLENDİR — her sayfa aynı ` +
+    `orta plan olmasın. Abartma: sinematik açı/lens/teknik terim YOK.\n` +
     (hasDream
       ? `"hayal" sahnelerinin sceneBrief'ine mutlaka ekle: "the same couple aged about ` +
         `${material.dream!.years} years older, still clearly recognizable".\n`
@@ -440,6 +536,7 @@ export async function writeCouplePlan(
   if (total < Math.max(3, targetImages - 2)) {
     throw new Error(`Plan sahne sayısı çok eksik (hedef ${targetImages}, gelen ${total}).`);
   }
+  ensureEveryPetAppears(plan, input.pets ?? []);
   return plan;
 }
 
@@ -454,7 +551,10 @@ const REVIEW_SYSTEM_PROMPT =
   "3) Evcil dostlar TÜR+MEKÂNA göre doğal mı? DIŞ mekân sahnelerinde (kafe/sahil/yol/gezi) " +
   "kedi/kuş varsa ÇIKAR. Köpek dışarıda kalabilir. Ev/iç mekân sahnelerinde kedi/kuş DOĞAL, " +
   "silme (her ev sahnesinde olmak zorunda değil ama bazılarında olması normaldir). Anlatımda " +
-  "açıkça geçen bir dost o sahneden çıkarılmaz.\n" +
+  "açıkça geçen bir dost o sahneden çıkarılmaz. AYRICA: verilen evcil dostlardan biri planın " +
+  "HİÇBİR sahnesinde geçmiyorsa onu uygun bir İÇ MEKÂN sahnesinin 'pets' listesine EKLE " +
+  "(en doğal yer sahibinin evindeki sahne) — müşteri o dostun fotoğrafını yükledi, kitapta " +
+  "hiç görünmemesi kabul edilemez.\n" +
   "4) Fiziksel temas anlatıldıysa sceneBrief'te odak noktası olarak geçiyor mu? Değilse ekle.\n" +
   "5) 'bunu gösterme' talimatları ihlal edilmiş mi? Edildiyse o içeriği tamamen çıkar.\n" +
   "6) Mekân adları/ayırt edici detaylar (tabela vb.) tarifte var mı? Yoksa ekle.\n" +
@@ -470,6 +570,12 @@ const REVIEW_SYSTEM_PROMPT =
   "eki kesme işaretiyle ('Buse'ye'), ünsüz yumuşaması. Üslubu ve anlamı DEĞİŞTİRME, " +
   "sadece dili düzelt; hatasız metni aynen bırak.\n" +
   "10) 'cover' alanını olduğu gibi koru (yalnız kural 9'a göre dili düzeltilebilir).\n" +
+  "11) UYDURMA GÖRÜNÜM var mı? Çiftin ya da dostların saç/göz/tüy rengi, teni, boyu, kilosu, " +
+  "yaşı ya da kıyafeti tarif edilmişse ÇIKAR ('casual attire', 'a red dress', 'blonde hair' vb.) " +
+  "— bunlar referans fotoğraflardan gelmeli. İstisna: anlatımda açıkça geçen kıyafet, sahnenin " +
+  "zorunlu kıldığı kıyafet (mayo/mont) ve 'kişisel görünüm notu' olarak verilen detaylar.\n" +
+  "12) Her sceneBrief 2-3 cümle mi ve sonunda kadraj ('close-up'/'medium shot'/'wide shot') var mı? " +
+  "Yoksa ekle. Kadrajlar kitap boyunca çeşitli mi, yoksa hepsi aynı mı? Aynıysa dağıt.\n" +
   "Sahne SAYISINI ve bölüm yapısını DEĞİŞTİRME — sadece içerikleri düzelt. " +
   "İstenen JSON'un dışına asla çıkma.";
 
@@ -492,9 +598,13 @@ export async function reviewCouplePlan(
     // Editör sahne kaybettiyse güvenli tarafta kal: orijinali kullan.
     // Kapağı düşürdüyse orijinal kapak tarifini geri koy (kapak istemi
     // hikayesiz kalmasın).
-    return newCount === origCount
-      ? { ...fixed, cover: fixed.cover ?? plan.cover }
-      : plan;
+    const result =
+      newCount === origCount
+        ? { ...fixed, cover: fixed.cover ?? plan.cover }
+        : plan;
+    // Editör bir dostu sahneden düşürmüş olabilir — son gate burası.
+    ensureEveryPetAppears(result, input.pets ?? []);
+    return result;
   } catch {
     return plan; // editör çökerse üretim durmasın
   }
