@@ -78,7 +78,13 @@ export type BookSection = {
   scenes: MemoryScene[];
 };
 
-export type CoupleBookPlan = { sections: BookSection[] };
+export type CoupleBookPlan = {
+  sections: BookSection[];
+  // Kapak tarifi: planı yazan LLM üretir, böylece kapak ÇİFTİN kendi
+  // hikayesini gösterir. Yoksa kapak genel bir "mutlu poz"a düşer (eski
+  // davranış — eski teaser/plan kayıtlarıyla uyum için opsiyonel).
+  cover?: { brief: string; pets?: string[] };
+};
 
 const COUPLE_STYLE =
   "romantic soft watercolor illustration, warm cozy colors, tender and " +
@@ -308,10 +314,21 @@ export async function analyzeCoupleMaterial(
 /* ---------- Kitap planı: bölümler + sahneler + intro cümleleri ---------- */
 
 const PLAN_SCHEMA =
-  `{"sections": [{"kind": "tanisma" | "ani" | "rutin" | "hayal", ` +
+  `{"cover": {"brief": "...", "pets": ["isim"]}, ` +
+  `"sections": [{"kind": "tanisma" | "ani" | "rutin" | "hayal", ` +
   `"intro": "italik ara sayfa cümlesi (Türkçe)", ` +
   `"scenes": [{"title": "...", "sceneBrief": "...", ` +
   `"bubbles": [{"speaker": 1 | 2, "text": "..."}], "pets": ["isim"]}]}]}`;
+
+// Kapak da plandan beslenir — aksi halde her çiftin kapağı aynı genel
+// "mutlu poz" olur, çünkü kapak istemi hikayeyi hiç görmez.
+const COVER_RULE =
+  `"cover": kitabın KAPAĞI. "brief" = İngilizce kapak tarifi (1-2 cümle): ` +
+  `çiftin hikayesini özetleyen sıcak bir an — onlara özel bir mekân ya da ` +
+  `birlikteliklerini anlatan bir sahne olsun, planın herhangi bir sahnesinin ` +
+  `kopyası OLMASIN. Başlık yazısını sen tarif etme (onu biz ekliyoruz). ` +
+  `"pets" = kapakta görünmesi DOĞAL olan evcil dostların isimleri (kapak iç ` +
+  `mekân değilse kedi/kuş yazma; hiçbiri doğal değilse boş dizi).`;
 
 export async function writeCouplePlan(
   input: CoupleInput,
@@ -371,7 +388,10 @@ export async function writeCouplePlan(
       left = 0;
     }
     if (fixedFirst && sections[0]?.scenes[0]) sections[0].scenes[0] = fixedFirst;
-    return { sections };
+    return {
+      sections,
+      cover: { brief: "The couple together in a mock cover scene.", pets: [] },
+    };
   }
 
   const fixedNote = fixedFirst
@@ -404,6 +424,7 @@ export async function writeCouplePlan(
       ? `"hayal" sahnelerinin sceneBrief'ine mutlaka ekle: "the same couple aged about ` +
         `${material.dream!.years} years older, still clearly recognizable".\n`
       : "") +
+    `\nAyrıca: ${COVER_RULE}\n` +
     `\nSADECE şu JSON'u döndür: ${PLAN_SCHEMA}`;
 
   const output = await falRawLlm(SEGMENT_SYSTEM_PROMPT, prompt);
@@ -442,6 +463,13 @@ const REVIEW_SYSTEM_PROMPT =
   "Takıp çıkarılan aksesuarlar (gözlük/kolye/saat/şapka) HEMEN HEMEN HER sahnede tekrar mı " +
   "ediyor? Öyleyse bir kısmından çıkarıp hikayeye doğal dağıt (bazı sahnede olsun, bazısında " +
   "olmasın). 'Değişmeyen detaylar' (araba/ev) bunun istisnası, onlara dokunma.\n" +
+  "9) TÜRKÇE DİL DENETİMİ (kritik — bu metinler sayfaya AYNEN basılıyor): " +
+  "'intro' cümlelerindeki ve baloncuk metinlerindeki dil bilgisi/imla hatalarını " +
+  "düzelt. Özellikle ek hataları ('gökkuşağa' → 'gökkuşağına'), ünlü uyumu " +
+  "('Pamuk de' → 'Pamuk da'), bağlaç 'de/da' ayrı-ek '-de/-da' bitişik, özel isim " +
+  "eki kesme işaretiyle ('Buse'ye'), ünsüz yumuşaması. Üslubu ve anlamı DEĞİŞTİRME, " +
+  "sadece dili düzelt; hatasız metni aynen bırak.\n" +
+  "10) 'cover' alanını olduğu gibi koru (yalnız kural 9'a göre dili düzeltilebilir).\n" +
   "Sahne SAYISINI ve bölüm yapısını DEĞİŞTİRME — sadece içerikleri düzelt. " +
   "İstenen JSON'un dışına asla çıkma.";
 
@@ -462,7 +490,11 @@ export async function reviewCouplePlan(
     const origCount = plan.sections.reduce((n, s) => n + s.scenes.length, 0);
     const newCount = fixed.sections?.reduce((n, s) => n + s.scenes.length, 0) ?? 0;
     // Editör sahne kaybettiyse güvenli tarafta kal: orijinali kullan.
-    return newCount === origCount ? fixed : plan;
+    // Kapağı düşürdüyse orijinal kapak tarifini geri koy (kapak istemi
+    // hikayesiz kalmasın).
+    return newCount === origCount
+      ? { ...fixed, cover: fixed.cover ?? plan.cover }
+      : plan;
   } catch {
     return plan; // editör çökerse üretim durmasın
   }
@@ -474,20 +506,27 @@ export function coupleTitle(input: CoupleInput): string {
   return `${input.partner1.name} & ${input.partner2.name}`;
 }
 
-export async function generateCoupleCover(input: CoupleInput): Promise<Buffer> {
+export async function generateCoupleCover(
+  input: CoupleInput,
+  cover?: CoupleBookPlan["cover"]
+): Promise<Buffer> {
   const title = coupleTitle(input);
   if (useMock()) {
     return mockRawImage(title, input.partner1.photoDatas);
   }
+  // Kapak tarifi plandan gelir → kapak çiftin KENDİ hikayesini gösterir.
+  // Gelmezse (eski kayıt) eski genel poza düşülür ve dostlar kapağa girer.
   const { refs, description } = refMapForScene(
     input,
-    (input.pets ?? []).map((p) => p.name) // kapakta dostlar olabilir
+    cover ? (cover.pets ?? []) : (input.pets ?? []).map((p) => p.name)
   );
   const prompt =
     `Romantic memory book COVER illustration. ${COUPLE_STYLE}. ` +
     description +
     settingBlock(input) +
-    `The couple together in a warm, happy pose that fits their story. ` +
+    (cover?.brief?.trim() ||
+      `The couple together in a warm, happy pose that fits their story.`) +
+    ` ` +
     `Render the title text "${title}" prominently at the top in an elegant, warm ` +
     `handwritten-style font, and the small subtitle "Anılarımız" below it ` +
     `(both in Turkish — render exactly as written). ` +
@@ -525,9 +564,15 @@ export async function generateCoupleScene(
 }
 
 // Baloncuk nesnelerine çevir (speaker 1 solda, 2 sağda; boş olabilir).
+// BOŞ metinler burada elenir: LLM boş/whitespace bir baloncuk döndürürse
+// bubbles.ts sıfır satıra sarıp geçersiz ölçülü (görünmez) bir kutu basar ve
+// ASIL baloncuğu aşağı kaydırır. Ölçüldü: sharp çökmüyor, sessizce bozuyor.
 export function sceneBubbles(scene: MemoryScene): Bubble[] {
-  return (scene.bubbles ?? []).slice(0, 2).map((b) => ({
-    text: b.text,
-    side: b.speaker === 1 ? "left" : "right",
-  }));
+  return (scene.bubbles ?? [])
+    .filter((b) => typeof b?.text === "string" && b.text.trim().length > 0)
+    .slice(0, 2)
+    .map((b) => ({
+      text: b.text.trim(),
+      side: b.speaker === 1 ? "left" : "right",
+    }));
 }

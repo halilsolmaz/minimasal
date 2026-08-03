@@ -277,7 +277,8 @@ async function runCoupleBook(
       log(dir, "Kapak önizlemeden alındı.");
     } else {
       log(dir, "Kapak üretiliyor...");
-      cover = await generateCoupleCover(input);
+      // Kapak tarifi plandan gelir → kapak bu çiftin kendi hikayesini gösterir.
+      cover = await generateCoupleCover(input, plan.cover);
       log(dir, "Kapak hazır.");
     }
     fs.writeFileSync(path.join(dir, "00-kapak.jpg"), cover);

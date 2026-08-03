@@ -7,6 +7,7 @@ import { toWatermarkedPreview } from "@/lib/ai/watermark";
 import { overlayBubbles } from "@/lib/ai/bubbles";
 import {
   writeCouplePlan,
+  reviewCouplePlan,
   generateCoupleCover,
   generateCoupleScene,
   sceneBubbles,
@@ -145,15 +146,16 @@ export async function POST(request: Request) {
     const title = coupleTitle(input);
 
     // Tanışma hikayesinden EN GÜZEL tek sahneyi çıkar (önizleme sayfası).
-    const previewPlan = await writeCouplePlan(
-      input,
-      { tanisma: body.tanisma.trim(), memories: [], routines: "" },
-      1
-    );
+    const material = { tanisma: body.tanisma.trim(), memories: [], routines: "" };
+    let previewPlan = await writeCouplePlan(input, material, 1);
+    // Editör geçişi burada da şart: bu sahnenin baloncuğu SUNUCUDA görsele
+    // basılıyor ve sipariş gelirse o görsel AYNEN kitaba giriyor — dil hatası
+    // sonradan düzeltilemez. (Ucuz LLM çağrısı; hata olursa plan aynen kalır.)
+    previewPlan = await reviewCouplePlan(input, material, previewPlan);
     const scene = previewPlan.sections[0]?.scenes[0];
     if (!scene) throw new Error("Önizleme sahnesi üretilemedi.");
 
-    const cover = await generateCoupleCover(input);
+    const cover = await generateCoupleCover(input, previewPlan.cover);
     const pageRaw = await generateCoupleScene(input, scene);
     const pageBubbled = await overlayBubbles(pageRaw, sceneBubbles(scene));
 

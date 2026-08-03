@@ -80,6 +80,10 @@ export async function overlayBubbles(
   image: Buffer,
   bubbles: Bubble[]
 ): Promise<Buffer> {
+  // Boş metin tek satır bile üretmez → kutu genişliği -Infinity olur; sharp
+  // patlamaz ama görünmez bir kutu basıp sonraki baloncuğu aşağı iter.
+  // Çağıran taraf elese de son savunma burada.
+  bubbles = bubbles.filter((b) => b.text?.trim().length > 0);
   if (bubbles.length === 0) return image;
   const meta = await sharp(image).metadata();
   const w = meta.width ?? 1024;
