@@ -66,7 +66,12 @@ export type CoupleMaterial = {
 export type MemoryScene = {
   title: string; // kısa Türkçe başlık (admin/log için)
   sceneBrief: string; // İngilizce görsel tarifi
-  bubbles?: { speaker: 1 | 2; text: string }[]; // opsiyonel, 0-2
+  // Baloncuklar (0-2). "side" = konuşan kişinin KAREDEKİ tarafı; baloncuk o
+  // tarafa basılır. Planlama LLM'i belirler ve AYNI konumu sceneBrief'e de
+  // yazar — yoksa baloncuk yanlış kişinin üstüne düşer (2026-07-20 demosu,
+  // 14-ani.jpg: Halil'in sözü solda, ama solda Buse var, arabayı o sürüyor).
+  // undefined = eski kayıt → 1. kişi sol, 2. kişi sağ (eski davranış).
+  bubbles?: { speaker: 1 | 2; text: string; side?: "left" | "right" }[];
   pets?: string[]; // bu sahnede görünen evcil dost İSİMLERİ (boş = hiçbiri)
 };
 
@@ -116,7 +121,15 @@ function refMapForScene(
   let description =
     `Reference ${p1Range} show ${p1.name} and reference ${p2Range} show ${p2.name} — ` +
     `a real couple; keep BOTH faces clearly recognizable but stylized as warm ` +
-    `illustration characters, NOT photorealistic. `;
+    `illustration characters, NOT photorealistic. ` +
+    // Kimlik kayması, 2026-07-20 demosunun en ciddi kusuruydu: aynı adam
+    // 5. sayfada kahverengi dalgalı, 6'da siyah jöleli saçlıydı. Her sayfa
+    // AYRI bir istekle üretiliyor ve model önceki sayfayı görmüyor; tek
+    // çıpası bu fotoğraflar, o yüzden tutarlılığı açıkça talep ediyoruz.
+    `These two are the SAME people on every page of a book: hair colour, hair ` +
+    `length and style, facial hair, eyebrows, skin tone and body build must match ` +
+    `the reference photos EXACTLY and must not vary from page to page. Do not ` +
+    `restyle or "improve" their hair or features. `;
   // NOT: Ayırt edici özellikleri BURADA her sahneye dökmüyoruz — aksi halde
   // gözlük/kolye gibi takıp çıkarılan şeyler her karede tekrarlanıp görseli
   // bozardı. Kalıcı iz (dövme) vs aksesuar (gözlük) ayrımını ve doğal dağılımı
@@ -293,6 +306,13 @@ const SEGMENT_SYSTEM_PROMPT =
   "söyler ('Bir tek bu şarkı kayıtlı'). Emin değilsen baloncuğu BOŞ bırak.\n" +
   "   - Baloncuğu KİM söylüyorsa ve kime söylüyorsa, ikisi de o sahnenin görselinde " +
   "OLMALI. Görünmeyen birine seslenen baloncuk anlamsız kalır.\n" +
+  "   - BALONCUK TARAFI ('side'). Baloncuk sunucuda görselin ÜST-SOL ya da ÜST-SAĞ köşesine " +
+  "basılıyor; yanlış tarafa basılırsa söz karşıdakinin üstünde kalır. Bu yüzden: (a) her " +
+  "baloncuk için konuşanın KAREDEKİ tarafını 'side' alanına yaz, (b) AYNI yerleşimi " +
+  "sceneBrief'e de İngilizce yaz ki ressam o kişiyi gerçekten o tarafa koysun (örn. " +
+  "'Buse on the left behind the wheel, Halil on the right'). İkisi TUTARLI olmalı; sahnenin " +
+  "gerçeğine uy (direksiyondaki kim, yürüyen kim), 'birinci kişi hep solda' diye varsayma. " +
+  "İki baloncuk varsa taraflar FARKLI olsun.\n" +
   "9) İtalik ara sayfa cümleleri (intro): kısa (≤100 karakter), sıcak, romantik ama " +
   "klişeye kaçmayan TÜRKÇE cümleler; bölümün içeriğine özel olsun.\n" +
   "10) GÖRÜNÜM ve NESNELERİ doğru dağıt (rastgelelik önemli):\n" +
@@ -461,7 +481,8 @@ const PLAN_SCHEMA =
   `"sections": [{"kind": "tanisma" | "ani" | "rutin" | "hayal", ` +
   `"intro": "italik ara sayfa cümlesi (Türkçe)", ` +
   `"scenes": [{"title": "...", "sceneBrief": "...", ` +
-  `"bubbles": [{"speaker": 1 | 2, "text": "..."}], "pets": ["isim"]}]}]}`;
+  `"bubbles": [{"speaker": 1 | 2, "text": "...", "side": "left" | "right"}], ` +
+  `"pets": ["isim"]}]}]}`;
 
 // Kapak da plandan beslenir — aksi halde her çiftin kapağı aynı genel
 // "mutlu poz" olur, çünkü kapak istemi hikayeyi hiç görmez.
@@ -639,7 +660,9 @@ const REVIEW_SYSTEM_PROMPT =
   "baloncuğu SİL ya da anlatımdaki gerçekle değiştir. Baloncuğu söyleyen ve dinleyen kişi " +
   "o sahnenin görselinde var mı? Yoksa ya sahneye o kişiyi EKLE ya da baloncuğu kaldır. " +
   "Baloncuk anlatımdaki bir sözü aktarıyorsa kritik kelimeyi DÜŞÜRME ('soğuk demleme çayı' " +
-  "→ baloncukta sadece 'soğuk demleme' yazarsa okuyan kahve anlar).\n" +
+  "→ baloncukta sadece 'soğuk demleme' yazarsa okuyan kahve anlar). " +
+  "Her baloncukta 'side' var mı ve sceneBrief'teki yerleşimle TUTARLI mı? Değilse düzelt — " +
+  "yanlış taraf, sözün karşıdaki kişinin üstünde durması demek.\n" +
   "16) TEKRAR VAR MI? Planı baştan sona oku: peş peşe gelen sahneler aynı kareyi mi anlatıyor " +
   "(aynı mekân + aynı duruş + aynı kadraj)? Varsa DÜZELT — kadrajı değiştir, karede ne " +
   "olduğunu değiştir (birinde ikisi birden, diğerinde sadece eller/bir detay), mekânın başka " +
@@ -752,16 +775,22 @@ export async function generateCoupleScene(
   return falRawImage(prompt, refs);
 }
 
-// Baloncuk nesnelerine çevir (speaker 1 solda, 2 sağda; boş olabilir).
+// Baloncuk nesnelerine çevir. Taraf ÖNCE plandan gelir (konuşan kişinin
+// karedeki gerçek tarafı); yoksa eski varsayıma düşülür (1 sol, 2 sağ).
 // BOŞ metinler burada elenir: LLM boş/whitespace bir baloncuk döndürürse
 // bubbles.ts sıfır satıra sarıp geçersiz ölçülü (görünmez) bir kutu basar ve
 // ASIL baloncuğu aşağı kaydırır. Ölçüldü: sharp çökmüyor, sessizce bozuyor.
 export function sceneBubbles(scene: MemoryScene): Bubble[] {
-  return (scene.bubbles ?? [])
+  const out: Bubble[] = (scene.bubbles ?? [])
     .filter((b) => typeof b?.text === "string" && b.text.trim().length > 0)
     .slice(0, 2)
     .map((b) => ({
       text: b.text.trim(),
-      side: b.speaker === 1 ? "left" : "right",
+      side: b.side ?? (b.speaker === 1 ? "left" : "right"),
     }));
+  // İki baloncuk aynı tarafa düşerse üst üste binerler; ikincisini karşıya al.
+  if (out.length === 2 && out[0].side === out[1].side) {
+    out[1].side = out[0].side === "left" ? "right" : "left";
+  }
+  return out;
 }
