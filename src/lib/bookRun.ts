@@ -326,6 +326,8 @@ async function runCoupleBook(
           log(dir, `Sahne ${sceneNo}/${totalScenes} üretiliyor (${section.kind}: ${scene.title})...`);
           const raw = await generateCoupleScene(input, scene, {
             agedYears: section.kind === "hayal" ? material.dream?.years : null,
+            // Ruh hali bu bölümün kendi anlamından gelir (sabit değil).
+            mood: section.core?.mood,
           });
           img = await overlayBubbles(raw, sceneBubbles(scene));
         }

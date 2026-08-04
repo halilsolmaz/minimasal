@@ -29,9 +29,13 @@ const LLM_MODEL = "anthropic/claude-sonnet-4.5";
 
 // Suluboya, MVP'nin kilitli stil kararı (AGENTS.md). 3D karşılaştırması
 // için bu sabit değiştirilip aynı girdiyle tekrar üretim yapılabilir.
+// SADECE SANAT STİLİ — ruh hali buraya yazılmaz (kurucu kararı 2026-08-03).
+// "dreamy and magical atmosphere" sabiti her sahneye giriyordu; oysa pedagoji
+// kuralı gereği artık kahramanın zorlandığı, üzüldüğü sahneler de var ve
+// onların da "büyülü" çizilmesi yanlış. Duyguyu imageBrief taşıyor.
 const STYLE_PROMPT =
   "soft watercolor children's storybook illustration, warm pastel colors, " +
-  "gentle brush strokes, dreamy and magical atmosphere";
+  "gentle brush strokes";
 
 // Temaya + seçimlere göre kapak sahnesi kur (seçim etiketleri Türkçe,
 // model çok dilli — sorun değil).

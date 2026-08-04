@@ -82,6 +82,16 @@ export type SectionKind = "tanisma" | "ani" | "rutin" | "hayal";
 export type BookSection = {
   kind: SectionKind;
   intro: string; // italik ara sayfa cümlesi (Türkçe)
+  // Bölümün ÖZÜ — sahnelerden ÖNCE yazılır (kurucu kararı 2026-08-03).
+  // Amaç: LLM'i "anıyı parçala" modundan "anıyı OKU" moduna geçirmek.
+  // Bir anıda çifti bağlayan şey her zaman aşk değil: destek ve minnet,
+  // rahatlama, birlikte gülmek, korkuyu paylaşmak... Bunu adlandırmadan
+  // yazılan sahneler yüzeyde kalıyor ("hastaneye gittiler → hastane çiz").
+  // mood İngilizce yazılır çünkü doğrudan görsel istemine giriyor.
+  core?: {
+    meaning: string; // Türkçe tek cümle: bu anı bu ilişki için ne anlatıyor
+    mood: string; // İngilizce ruh hali (ör. "quiet gratitude, steady support")
+  };
   scenes: MemoryScene[];
 };
 
@@ -93,9 +103,13 @@ export type CoupleBookPlan = {
   cover?: { brief: string; pets?: string[] };
 };
 
+// SADECE SANAT STİLİ — ruh hali BURAYA YAZILMAZ (kurucu kararı 2026-08-03).
+// Eskiden "tender and joyful mood" sabiti vardı ve her sahneye giriyordu:
+// hastane koridoru da, veda da, hüzünlü bir an da "neşeli" çizilirdi.
+// Duyguyu artık bölümün kendi anlamı belirliyor (BookSection.core.mood).
 const COUPLE_STYLE =
-  "romantic soft watercolor illustration, warm cozy colors, tender and " +
-  "joyful mood, storybook style, NOT photorealistic";
+  "romantic soft watercolor illustration, warm colors, storybook style, " +
+  "NOT photorealistic";
 
 function useMock(): boolean {
   const forced = process.env.AI_PROVIDER;
@@ -262,7 +276,10 @@ function settingBlock(input: CoupleInput): string {
   if (input.fixedDetails?.trim()) {
     s += `Consistent details that must look IDENTICAL in every scene where they appear: ${input.fixedDetails.trim()}. `;
   }
-  s += `Characters are dressed appropriately for the location and situation (e.g. shoes in cafés and streets). `;
+  // VARSAYILAN, mutlak kural değil: anlatım "bütün gün pijamayla dolaştık" ya da
+  // "sahilde yalınayak" diyorsa anlatım kazanır (kurucu kararı 2026-08-03).
+  s += `Unless the scene description says otherwise, characters are dressed plausibly ` +
+    `for the place and the weather (for example wearing shoes in cafés and on the street). `;
   return s;
 }
 
@@ -272,6 +289,25 @@ const SEGMENT_SYSTEM_PROMPT =
   "Sen romantik bir anı kitabı editörüsün. Çiftin kendi yazdığı ham malzemeyi " +
   "(tanışma, anılar, rutinler, hayal) BÖLÜMLÜ bir kitap planına çevirirsin. " +
   "KESİN KURALLAR:\n" +
+  "0) ÖNCE OKU, SONRA SAHNELE (en önemli kural). Her bölüm için sahneleri yazmadan " +
+  "ÖNCE 'core' alanını doldur: bu anı bu ilişki için NE anlatıyor, o gün bu iki insanı " +
+  "birbirine bağlayan şey NEYDİ? Sahneleri, ara sayfa cümlesini ve ruh halini SONRA bu " +
+  "cevaba göre kur. Anıyı sadece olaylara bölme — olayın altındaki şeyi bul.\n" +
+  "   - Bir ilişki yalnız aşk ve neşeden ibaret değildir. Duygu dağarcığın geniş olsun: " +
+  "destek olmak ve minnet duymak, korkuyu paylaşmak, rahatlama, güvende hissetmek, birlikte " +
+  "gülmek, gurur, birinin seni gerçekten görmesi, sessiz bir yakınlık, özlem, yorgun bir huzur. " +
+  "Her bölüme 'romantik ve mutlu' etiketi yapıştırma.\n" +
+  "   - ÖRNEK (kurucunun tarifi): Kullanıcı 'babam kalp krizi geçirdi, ilk onu aradım, " +
+  "hastaneye benden önce vardı, elinde iki çay vardı, biri benim içindi ve soğumuştu, beni " +
+  "görünce hiçbir şey söylemeden sarıldı' diye anlatıyor. YANLIŞ okuma: 'hastaneye gittiler, " +
+  "hastane çiz'. DOĞRU okuma: meaning = 'Zor bir günde biri koşup geldi, diğeri bunu hiç " +
+  "unutmadı — bu anıyı bağlayan şey destek ve minnet.' mood = 'quiet gratitude, steady " +
+  "presence, relief'. Sahneler de bunu göstermeli: soğumuş çayı tutan eller, konuşmadan " +
+  "sarılma — hastane binası değil.\n" +
+  "   - 'mood' İngilizce yazılır ve doğrudan ressama gider; o bölümün TÜM sahnelerinin " +
+  "ışığını ve ifadesini bu belirler. Neşeli bir anıya neşeli, ağır bir anıya ağırbaşlı yaz.\n" +
+  "   - 'intro' (italik ara sayfa cümlesi) de bu anlamdan doğsun; genel geçer romantik " +
+  "cümle yazma.\n" +
   "1) Mekân ve olay akışı anlatımdakiyle BİREBİR aynı olmalı: kim, kimi, nerede, " +
   "nasıl gördü/yaptı — asla değiştirme, ters çevirme, uydurma.\n" +
   "   - SPESİFİK DETAY UYDURMA. Anlatımda olmayan bir eylem, nesne ya da atmosfer sıfatı " +
@@ -286,14 +322,18 @@ const SEGMENT_SYSTEM_PROMPT =
   "tatlı bir anını seç. Sigara ve madde kullanımını görselleştirme; şarap/kahve serbest.\n" +
   "4) Fiziksel temas anları (ayakların değmesi, el ele, sarılma) anlatıldıysa o temas " +
   "sahnenin MERKEZİ ve odak noktası olmalı — sceneBrief'te açıkça 'the focal point is...' de.\n" +
-  "5) Lakaplar/hitaplar KRONOLOJİYE uyar: tanışma ve flört dönemi sahnelerinde lakap " +
-  "KULLANILMAZ (isim ya da hitapsız); lakaplar ancak ilişkinin oturduğu anı/rutin/hayal " +
-  "sahnelerinde. Sana verilmeyen hiçbir lakabı uydurma.\n" +
+  "5) Lakaplar/hitaplar KRONOLOJİYE uyar. VARSAYILAN: tanışma ve flört dönemi " +
+  "sahnelerinde lakap kullanılmaz (isim ya da hitapsız); lakaplar ilişkinin oturduğu " +
+  "anı/rutin/hayal sahnelerinde geçer. Ama anlatım lakabın ne zaman doğduğunu söylüyorsa " +
+  "(ör. 'daha ilk gün bana öyle seslendi') ANLATIM KAZANIR. Sana verilmeyen hiçbir lakabı " +
+  "uydurma.\n" +
   "6) Evcil dostları sahnelere DOĞAL yerleştir, ne zorla sok ne de 'kesinlikle yok' de:\n" +
   "   - Anlatımda bir sahnede AÇIKÇA geçiyorsa o sahnenin 'pets' listesine mutlaka yaz.\n" +
-  "   - KEDİ ve KUŞ eve bağlıdır: yalnız EV/İÇ MEKÂN sahnelerinde görünebilir, o da HER ev " +
-  "sahnesinde değil ARA SIRA (bazı ev sahnesinde olsun, bazısında olmasın — doğal ve rastgele). " +
-  "Kafe, sahil, sokak, yol, gezi gibi DIŞ mekân sahnelerine kedi/kuş YAZMA.\n" +
+  "   - KEDİ ve KUŞ genellikle eve bağlıdır: VARSAYILAN olarak yalnız ev/iç mekân " +
+  "sahnelerinde görünürler, o da HER ev sahnesinde değil ARA SIRA (bazısında olsun, " +
+  "bazısında olmasın — doğal ve rastgele). Kendiliğinden kafe/sahil/sokak sahnesine kedi " +
+  "yazma. AMA bu bir varsayım, yasak değil: anlatım kediyi dışarıda anlatıyorsa " +
+  "(taşıma çantasıyla arabada, bahçede, tatile götürülmüş) ANLATIM KAZANIR, o sahneye yaz.\n" +
   "   - KÖPEK hem evde hem dışarıda (yürüyüş, sahil, araba yolculuğu) doğal olabilir; uygun " +
   "düştüğü sahnelere yaz, yine her sahneye değil.\n" +
   "   - Doğal görünmeyen hiçbir sahneye dost sokma; o sahnelerde 'pets' boş dizi olur.\n" +
@@ -326,8 +366,10 @@ const SEGMENT_SYSTEM_PROMPT =
   "'Buse on the left behind the wheel, Halil on the right'). İkisi TUTARLI olmalı; sahnenin " +
   "gerçeğine uy (direksiyondaki kim, yürüyen kim), 'birinci kişi hep solda' diye varsayma. " +
   "İki baloncuk varsa taraflar FARKLI olsun.\n" +
-  "9) İtalik ara sayfa cümleleri (intro): kısa (≤100 karakter), sıcak, romantik ama " +
-  "klişeye kaçmayan TÜRKÇE cümleler; bölümün içeriğine özel olsun.\n" +
+  "9) İtalik ara sayfa cümleleri (intro): kısa (≤100 karakter), TÜRKÇE ve o bölümün " +
+  "'core.meaning' alanından doğsun. Tonu bölümün ruh haline uysun — neşeli bir anıya " +
+  "neşeli, ağır bir anıya ağırbaşlı. Her cümleyi romantik kalıba sokma; genel geçer " +
+  "sözler ('Aşk her yerde') yerine SADECE bu çifte ait bir şey söyle.\n" +
   "10) GÖRÜNÜM ve NESNELERİ doğru dağıt (rastgelelik önemli):\n" +
   "   - KALICI izler (dövme, yara izi, doğum lekesi, kalıcı piercing): o vücut bölgesi " +
   "göründüğü HER sahnenin sceneBrief'ine yaz (örn. açık koldaki dövme, kolun göründüğü her sahnede).\n" +
@@ -492,6 +534,7 @@ export async function analyzeCoupleMaterial(
 const PLAN_SCHEMA =
   `{"cover": {"brief": "...", "pets": ["isim"]}, ` +
   `"sections": [{"kind": "tanisma" | "ani" | "rutin" | "hayal", ` +
+  `"core": {"meaning": "Türkçe tek cümle", "mood": "İngilizce ruh hali"}, ` +
   `"intro": "italik ara sayfa cümlesi (Türkçe)", ` +
   `"scenes": [{"title": "...", "sceneBrief": "...", ` +
   `"bubbles": [{"speaker": 1 | 2, "text": "...", "side": "left" | "right"}], ` +
@@ -534,6 +577,7 @@ export async function writeCouplePlan(
     sections.push({
       kind: "tanisma",
       intro: "Seni ilk gördüğüm an…",
+      core: { meaning: "Mock: tanışma anlamı", mood: "warm curiosity" },
       scenes: Array.from({ length: tanismaCount }, (_, i) => mkScene(i + 1)),
     });
     material.memories.forEach((_, mi) => {
@@ -593,6 +637,9 @@ export async function writeCouplePlan(
       : "") +
     `\nTOPLAM SAHNE (görsel) SAYISI TAM OLARAK ${fixedFirst ? targetImages - 1 : targetImages} olmalı ` +
     `(bölümlere sen dağıt; intro sayfaları bu sayıya dahil değil).${fixedNote}\n\n` +
+    `Her bölüm için ÖNCE "core": {"meaning": bu anının bu ilişki için ne anlattığı ` +
+    `(Türkçe tek cümle), "mood": o bölümün İngilizce ruh hali (ör. "quiet gratitude, ` +
+    `steady presence")}. Bunu sahnelerden ÖNCE yaz ve sahneleri buna göre seç.\n` +
     `Her sahne için: "title" (2-4 kelime Türkçe), ` +
     `"sceneBrief" (İngilizce resim tarifi — bu tarif sayfadaki resmin TEK kaynağı, ` +
     `KISA TUTMA: 2-3 cümle. Şunları içersin: ne oluyor, mekân ve o mekânın somut ` +
@@ -634,6 +681,12 @@ const REVIEW_SYSTEM_PROMPT =
   "Sen titiz bir yayın editörüsün. Sana bir çiftin ham anlatımı ve ondan çıkarılmış " +
   "kitap planı verilir. Planı KAYNAKLA karşılaştırıp hataları DÜZELTİLMİŞ planla " +
   "yanıtlarsın. Kontrol listesi:\n" +
+  "0) BÖLÜMÜN ÖZÜ DOĞRU OKUNMUŞ MU? Her bölümün 'core.meaning' alanı o anıda çifti " +
+  "birbirine bağlayan şeyi gerçekten söylüyor mu, yoksa yüzeysel bir olay özeti mi " +
+  "('hastaneye gittiler')? Yüzeyselse DÜZELT. 'core.mood' anının gerçek duygusuna uyuyor " +
+  "mu — ağır bir anıya 'joyful' yazılmışsa düzelt. Sahneler ve intro cümlesi bu özü " +
+  "gösteriyor mu? Göstermiyorsa sahneleri o ana çevir (ör. destek ve minnet anlatılıyorsa " +
+  "hastane binası değil, konuşmadan sarılma ya da soğumuş çayı tutan eller).\n" +
   "1) Mekân/olay/yön anlatımla birebir mi? (kim kimi nerede gördü, kim ne yaptı)\n" +
   "2) Tanışma/flört sahnelerinde lakap kullanılmış mı? Kullanıldıysa kaldır/isimle değiştir.\n" +
   "3) Evcil dostlar TÜR+MEKÂNA göre doğal mı? DIŞ mekân sahnelerinde (kafe/sahil/yol/gezi) " +
@@ -800,7 +853,7 @@ export async function generateCoupleCover(
 export async function generateCoupleScene(
   input: CoupleInput,
   scene: MemoryScene,
-  opts: { agedYears?: number | null } = {}
+  opts: { agedYears?: number | null; mood?: string } = {}
 ): Promise<Buffer> {
   if (useMock()) {
     return mockRawImage(`Anı: ${scene.title}`, input.partner1.photoDatas);
@@ -820,11 +873,18 @@ export async function generateCoupleScene(
     ? ` The couple is depicted about ${opts.agedYears} years OLDER than in the reference photos — ` +
       `age them naturally (hair, face) but keep both clearly recognizable.`
     : "";
+  // Ruh hali SABİT DEĞİL — bu bölümün kendi anlamından gelir (core.mood).
+  // Yoksa hiç yazılmaz; sahne tarifindeki duygu kendi başına yeter.
+  const mood = opts.mood?.trim()
+    ? ` Overall mood of this chapter: ${opts.mood.trim()} — let the light, colours and ` +
+      `expressions carry it honestly; do not force cheerfulness.`
+    : "";
   const prompt =
     `Romantic memory book INTERIOR full-page illustration. ${COUPLE_STYLE}. ` +
     description +
     settingBlock(input) +
     scene.sceneBrief +
+    mood +
     aging +
     bubbleSpace +
     ` Absolutely no text except signage explicitly described above; no watermarks. Portrait orientation.`;

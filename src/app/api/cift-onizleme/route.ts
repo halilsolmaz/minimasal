@@ -184,7 +184,9 @@ export async function POST(request: Request) {
     if (previewPlan.sections[0]) previewPlan.sections[0].scenes[0] = scene;
 
     const cover = await generateCoupleCover(input, previewPlan.cover);
-    const page = await generateCoupleScene(input, scene);
+    const page = await generateCoupleScene(input, scene, {
+      mood: previewPlan.sections[0]?.core?.mood,
+    });
 
     const [coverWm, pageWm] = await Promise.all([
       toWatermarkedPreview(cover),
