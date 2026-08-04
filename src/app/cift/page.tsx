@@ -462,22 +462,11 @@ export default function CoupleWizardPage() {
                 </label>
               </div>
 
-              <label className="mt-6 block">
-                <span className="block text-sm font-bold text-ink mb-1.5">
-                  Değişmeyen detaylar{" "}
-                  <span className="font-normal text-ink-soft">(isteğe bağlı ama önerilir)</span>
-                </span>
-                <textarea
-                  value={data.fixedDetails}
-                  onChange={(e) => update({ fixedDetails: e.target.value })}
-                  placeholder="Örn. Arabamız beyaz bir Renault Clio. Evde gri L koltuk ve 75 inç TV var."
-                  rows={3}
-                  className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
-                />
-                <span className="mt-1 block text-xs text-ink-soft">
-                  Araba, ev gibi tekrar eden şeyler her sayfada AYNI görünsün diye.
-                </span>
-              </label>
+              {/* "Değişmeyen detaylar" sorusu KALDIRILDI (kurucu kararı
+                  2026-08-03): kullanıcıya sorulacak tuhaf bir soruydu.
+                  Araba/ev gibi tekrar eden detaylar artık anlatımın kendi
+                  içinden çıkarılıyor (bkz. SEGMENT_SYSTEM_PROMPT) ve
+                  anı/tanışma ipuçlarında örnekle teşvik ediliyor. */}
 
               <div className="mt-6 grid sm:grid-cols-2 gap-4">
                 <label className="block">

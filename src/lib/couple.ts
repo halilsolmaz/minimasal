@@ -87,11 +87,15 @@ export function dreamComplete(d: CoupleDream): boolean {
 export const SECTION_HINTS = {
   tanisma:
     "Nerede, nasıl tanıştınız? O gün neler oldu, üzerinizde ne vardı, ne konuştunuz? " +
+    "Mekânları adıyla yazın, tekrar eden şeyleri (arabanız, eviniz, gittiğiniz " +
+    "yer) tarif edin — 'gri Polo'muzla', 'sarmaşıklı balkonumuzda' gibi. " +
     "Ne kadar detay verirseniz o kadar çok sahne çıkarabiliriz. " +
     "Göstermek istemediğiniz bir detayı '(bunu gösterme)' diye işaretleyin — ressamımız onu atlar.",
   ani:
     "Sizin için önemli bir anıyı anlatın: bir gezi, bir gece, bir sürpriz... " +
-    "Yer, mevsim, kıyafet gibi detaylar çizimleri gerçekçi yapar.",
+    "Yer, mevsim, hava gibi detaylar çizimleri gerçekçi yapar. Tekrar eden " +
+    "şeyleri de yazın — 'beyaz Clio'muzla gittik', 'her zamanki L koltuğumuzda' " +
+    "gibi; o zaman her sayfada aynı görünürler.",
   rutinler:
     "Birlikte yapmayı sevdiğiniz şeyler: kahve ritüeliniz, gittiğiniz mekânlar, " +
     "evdeki alışkanlıklarınız, evcil dostlarınızla halleriniz... Madde madde yazabilirsiniz; " +

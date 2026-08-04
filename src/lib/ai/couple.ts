@@ -382,7 +382,14 @@ const SEGMENT_SYSTEM_PROMPT =
   "TEKRARLANMAZ — bazı sahnede olsun bazısında olmasın, hikayeye doğal dağılsın. Aynı aksesuarı her " +
   "karede tekrarlamak görseli mahveder.\n" +
   "   - Bu 'doğal dağıt, her kareye koyma' ilkesi tüm nesneler/kıyafetler için geçerli. TEK istisna: " +
-  "'değişmeyen detaylar' (araba/ev) — onlar bilerek her sahnede AYNI kalır.\n" +
+  "tekrar eden somut nesneler (aşağıdaki kural 10b) — onlar bilerek her sahnede AYNI kalır.\n" +
+  "10b) TEKRAR EDEN NESNELERİ ANLATIMDAN SEN ÇIKAR (kurucu kararı 2026-08-03 — bu artık " +
+  "kullanıcıya ayrı bir soru olarak sorulmuyor). Anlatımda birden fazla sahnede geçen somut " +
+  "şeyleri (araba, ev/oda, koltuk, televizyon, tekrar gidilen mekân) kendin tespit et; ilk " +
+  "geçtiği sceneBrief'te nasıl göründüğünü belirle ve geçtiği HER sahnede AYNI kelimelerle " +
+  "tekrarla. Ressam önceki sayfayı görmüyor — tarif etmediğin nesne her sayfada başka türlü " +
+  "çizilir. Anlatımda özelliği verilmemişse (ör. sadece 'arabamız' deniyorsa) sen bir " +
+  "görünüm UYDURMA; nötr bırak ama yine de her sahnede aynı nötr ifadeyi kullan.\n" +
   "11) GÖRÜNÜM UYDURMA. Çiftin ve evcil dostların FOTOĞRAFI ressama ayrıca gidiyor; sen o " +
   "fotoğrafları GÖRMÜYORSUN. Bu yüzden saç/göz/tüy rengi, ten, boy, kilo, beden, yaş, ırk gibi " +
   "hiçbir fiziksel niteliği yazma — uydurduğun şey fotoğrafla çelişirse ressam iki zıt komut alır " +
