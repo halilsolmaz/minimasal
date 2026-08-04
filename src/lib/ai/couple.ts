@@ -245,10 +245,16 @@ export function ensureEveryPetAppears(
 
 // Coğrafya + tutarlılık bloğu: her sahne istemine eklenir.
 function settingBlock(input: CoupleInput): string {
+  // Coğrafya VARSAYILANI — sahne tarifi başka bir ülkeyi açıkça söylüyorsa
+  // (yurt dışı tatili anısı gibi) o kazanır. Eskiden koşulsuz "yabancı ülke
+  // DEĞİL" deniyordu; Prag'da geçen bir anı Ankara gibi çizilirdi.
   const city = input.city?.trim();
   let s = city
-    ? `Setting: ${city}, Turkey — Turkish architecture, streets, vehicles, signage and daily life; NOT a foreign country. `
-    : `Setting: Turkey — Turkish architecture and daily life. `;
+    ? `Setting: unless the scene description below explicitly places this scene ` +
+      `in another city or country, the scene happens in ${city}, Turkey — Turkish ` +
+      `architecture, streets, vehicles, signage and daily life. `
+    : `Setting: unless the scene description below explicitly names another ` +
+      `country, the scene happens in Turkey — Turkish architecture and daily life. `;
   const ages = [input.age1, input.age2].filter((a) => a?.trim());
   if (ages.length === 2) {
     s += `${input.partner1.name} is ${input.age1} and ${input.partner2.name} is ${input.age2} years old. `;
@@ -298,6 +304,11 @@ const SEGMENT_SYSTEM_PROMPT =
   "7) Özel mekân adlarını ve ayırt edici özellikleri sceneBrief'e AYNEN İngilizce tarifle " +
   "yaz — tabela metni dahil (örn. a café sign reading \"Gardiyanbucks\", a parody of Starbucks). " +
   "Türkiye'ye özgü öğeleri koru (pide fırını, ince belli çay bardağı, tramvay...).\n" +
+  "   - YURT DIŞI ANILARI: bir anı başka bir ülkede/şehirde geçiyorsa (tatil, seyahat) " +
+  "sceneBrief'e ÜLKEYİ VE ŞEHRİ AÇIKÇA yaz ve o yerin tanınır öğelerini kullan " +
+  "(örn. 'in Prague, Czech Republic — baroque facades, cobbled streets, the Charles Bridge " +
+  "statues under snow'). Aksi halde sahne varsayılan olarak çiftin yaşadığı Türk şehri gibi " +
+  "çizilir ve anı yanlış yerde geçmiş olur. Aynı bölümdeki TÜM sahnelerde o yeri tekrar yaz.\n" +
   "8) Baloncuk her sahnede ZORUNLU DEĞİL: sadece doğal olduğu yerde 1-2 kısa Türkçe söz " +
   "(≤60 karakter, klişe değil); diğerlerinde bubbles boş dizi.\n" +
   "   - BALONCUK BİLGİ UYDURAMAZ. Yalnızca anlatımda GEÇEN ya da o andan doğrudan çıkan " +
@@ -634,7 +645,10 @@ const REVIEW_SYSTEM_PROMPT =
   "hiç görünmemesi kabul edilemez.\n" +
   "4) Fiziksel temas anlatıldıysa sceneBrief'te odak noktası olarak geçiyor mu? Değilse ekle.\n" +
   "5) 'bunu gösterme' talimatları ihlal edilmiş mi? Edildiyse o içeriği tamamen çıkar.\n" +
-  "6) Mekân adları/ayırt edici detaylar (tabela vb.) tarifte var mı? Yoksa ekle.\n" +
+  "6) Mekân adları/ayırt edici detaylar (tabela vb.) tarifte var mı? Yoksa ekle. " +
+  "Anlatım bir anının YURT DIŞINDA geçtiğini söylüyorsa o bölümün her sahnesinde ülke/şehir " +
+  "ve oraya özgü öğeler yazılmış mı? Yazılmamışsa EKLE — yoksa sahne çiftin yaşadığı Türk " +
+  "şehri gibi çizilir.\n" +
   "7) Kıyafet/ayakkabı mekâna uygun mu? (kafede çıplak ayak olmaz)\n" +
   "8) Kalıcı izler (dövme vb.) o bölgenin göründüğü sahnelerde var mı? Yoksa ekle. " +
   "Takıp çıkarılan aksesuarlar (gözlük/kolye/saat/şapka) HEMEN HEMEN HER sahnede tekrar mı " +
