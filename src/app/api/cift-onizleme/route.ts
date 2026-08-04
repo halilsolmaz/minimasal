@@ -1,17 +1,16 @@
 // Çift anı kitabı — ücretsiz önizleme: kapak + ilk anı sayfası.
-// İlk sahne TANIŞMA hikayesinden çıkarılır (baloncuk varsa basılır).
+// İlk sahne TANIŞMA hikayesinden çıkarılır. KAPAKTA VE İLK SAYFADA
+// BALONCUK YOKTUR (kurucu kararı 2026-08-03) — ikisi de tertemiz görsel.
 // Ham haller saklanır; sipariş gelirse tam kitapta AYNEN kullanılır.
 // Limitler ortak (teasers tablosu).
 
 import { toWatermarkedPreview } from "@/lib/ai/watermark";
-import { overlayBubbles } from "@/lib/ai/bubbles";
 import {
   writeCouplePlan,
   reviewCouplePlan,
   outlineFromPlan,
   generateCoupleCover,
   generateCoupleScene,
-  sceneBubbles,
   coupleTitle,
   type CoupleInput,
   type CouplePetInput,
@@ -173,16 +172,23 @@ export async function POST(request: Request) {
     // basılıyor ve sipariş gelirse o görsel AYNEN kitaba giriyor — dil hatası
     // sonradan düzeltilemez. (Ucuz LLM çağrısı; hata olursa plan aynen kalır.)
     previewPlan = await reviewCouplePlan(input, material, previewPlan);
-    const scene = previewPlan.sections[0]?.scenes[0];
-    if (!scene) throw new Error("Önizleme sahnesi üretilemedi.");
+    const planned = previewPlan.sections[0]?.scenes[0];
+    if (!planned) throw new Error("Önizleme sahnesi üretilemedi.");
+    // KAPAK VE İLK SAYFADA BALONCUK YOK (kurucu kararı 2026-08-03).
+    // Kapakta zaten hiç basılmıyordu; ilk sayfada da baloncuğu tamamen
+    // kaldırıyoruz. Bu sahne sipariş gelirse kitaba AYNEN girdiği için
+    // planda da baloncuksuz saklanır. Yan fayda: baloncuk olmayınca
+    // "üst %20'yi sakin bırak" talimatı da verilmiyor, görsel tam sayfa
+    // kullanılıyor.
+    const scene = { ...planned, bubbles: [] };
+    if (previewPlan.sections[0]) previewPlan.sections[0].scenes[0] = scene;
 
     const cover = await generateCoupleCover(input, previewPlan.cover);
-    const pageRaw = await generateCoupleScene(input, scene);
-    const pageBubbled = await overlayBubbles(pageRaw, sceneBubbles(scene));
+    const page = await generateCoupleScene(input, scene);
 
     const [coverWm, pageWm] = await Promise.all([
       toWatermarkedPreview(cover),
-      toWatermarkedPreview(pageBubbled),
+      toWatermarkedPreview(page),
     ]);
     const imageData = `data:image/jpeg;base64,${coverWm.toString("base64")}`;
     const page1Image = `data:image/jpeg;base64,${pageWm.toString("base64")}`;
@@ -198,7 +204,7 @@ export async function POST(request: Request) {
       // bookRun sipariş üretiminde bunu aynen 1. sahne yapar.
       scene1: { pageText: JSON.stringify(scene), imageBrief: scene.sceneBrief },
       coverRaw: `data:image/jpeg;base64,${cover.toString("base64")}`,
-      page1Raw: `data:image/jpeg;base64,${pageBubbled.toString("base64")}`,
+      page1Raw: `data:image/jpeg;base64,${page.toString("base64")}`,
     });
 
     return Response.json({
@@ -207,7 +213,6 @@ export async function POST(request: Request) {
       imageData,
       page1Image,
       page1Title: scene.title,
-      page1Bubbles: sceneBubbles(scene).map((b) => b.text),
       // Sayfa haritası: hangi bölüm, hangi ara sayfa cümlesi, kaç görsel.
       outline: outlineFromPlan(previewPlan),
     });

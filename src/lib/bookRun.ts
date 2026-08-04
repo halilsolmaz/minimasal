@@ -275,6 +275,12 @@ async function runCoupleBook(
       applyIntroEdits(plan, introEdits);
       log(dir, "Kullanıcının düzenlediği ara sayfa yazıları uygulandı.");
     }
+    // Kitabın İLK sahnesinde baloncuk yok (kurucu kararı 2026-08-03) —
+    // önizlemede gösterilen sayfa da bu. Önizlemeden gelen sipariş zaten
+    // baloncuksuz; burası önizleme yapmadan sipariş veren için aynı sonucu
+    // garantiler (iki müşteri farklı kitap almasın).
+    const firstScene = plan.sections[0]?.scenes[0];
+    if (firstScene?.bubbles?.length) firstScene.bubbles = [];
     fs.writeFileSync(
       path.join(dir, "plan.json"),
       JSON.stringify({ title, plan }, null, 2),

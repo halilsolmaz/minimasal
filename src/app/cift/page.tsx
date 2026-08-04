@@ -41,7 +41,6 @@ type Preview = {
   imageData: string;
   page1Image?: string;
   page1Title?: string;
-  page1Bubbles?: string[];
   teaserId?: string;
   // Kitabın sayfa haritası: bölümler, ara sayfa yazıları, kaç görsel.
   outline?: CoupleOutlineSection[];
@@ -230,7 +229,6 @@ export default function CoupleWizardPage() {
         imageData: json.imageData,
         page1Image: json.page1Image,
         page1Title: json.page1Title,
-        page1Bubbles: json.page1Bubbles,
         teaserId: json.teaserId,
         outline: json.outline,
       };
