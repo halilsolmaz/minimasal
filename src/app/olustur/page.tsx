@@ -3,7 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BRAND } from "@/lib/brand";
-import { THEMES, getTheme } from "@/lib/themes";
+import {
+  THEMES,
+  getTheme,
+  isValidChoice,
+  isCustomChoice,
+  customChoiceText,
+  choiceLabel,
+  CUSTOM_PREFIX,
+  MAX_CUSTOM_OPTION_CHARS,
+} from "@/lib/themes";
 import {
   initialWizardState,
   loadWizardState,
@@ -96,8 +105,13 @@ export default function CreatePage() {
       case 3:
         return !!data.themeId;
       case 4:
+        // Serbest metin seçildiyse boş bırakılmış olamaz (isValidChoice
+        // "custom:" öneki ardından en az 2 karakter ister).
         return (
-          !!theme && theme.options.every((o) => !!data.options[o.id])
+          !!theme &&
+          theme.options.every((o) =>
+            isValidChoice(theme.id, o.id, data.options[o.id])
+          )
         );
       case 5:
         return true; // opsiyonel
@@ -328,26 +342,69 @@ export default function CreatePage() {
               subtitle="Birkaç küçük seçim, masalı tamamen kişisel yapıyor."
             >
               <div className="space-y-7">
-                {theme.options.map((opt) => (
-                  <div key={opt.id}>
-                    <p className="font-bold text-ink mb-3">{opt.question}</p>
-                    <div className="flex flex-wrap gap-2.5">
-                      {opt.choices.map((c) => (
+                {theme.options.map((opt) => {
+                  const value = data.options[opt.id];
+                  const custom = isCustomChoice(value);
+                  return (
+                    <div key={opt.id}>
+                      <p className="font-bold text-ink mb-3">{opt.question}</p>
+                      <div className="flex flex-wrap gap-2.5">
+                        {opt.choices.map((c) => (
+                          <ChoiceChip
+                            key={c.id}
+                            active={value === c.id}
+                            onClick={() =>
+                              update({
+                                options: { ...data.options, [opt.id]: c.id },
+                              })
+                            }
+                            emoji={c.emoji}
+                            label={c.label}
+                          />
+                        ))}
+                        {/* Hazır liste yetmiyorsa kendi cevabını yazsın
+                            (kurucu kararı 2026-08-03). */}
                         <ChoiceChip
-                          key={c.id}
-                          active={data.options[opt.id] === c.id}
+                          active={custom}
                           onClick={() =>
                             update({
-                              options: { ...data.options, [opt.id]: c.id },
+                              options: {
+                                ...data.options,
+                                [opt.id]: custom ? "" : CUSTOM_PREFIX,
+                              },
                             })
                           }
-                          emoji={c.emoji}
-                          label={c.label}
+                          emoji="✏️"
+                          label="Başka bir şey"
                         />
-                      ))}
+                      </div>
+                      {custom && (
+                        <div className="mt-3">
+                          <input
+                            autoFocus
+                            type="text"
+                            value={customChoiceText(value)}
+                            maxLength={MAX_CUSTOM_OPTION_CHARS}
+                            onChange={(e) =>
+                              update({
+                                options: {
+                                  ...data.options,
+                                  [opt.id]: CUSTOM_PREFIX + e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="Kendi cevabınızı yazın…"
+                            className="w-full rounded-2xl border border-ink/15 px-5 py-3.5 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                          />
+                          <p className="mt-1.5 text-xs text-ink-soft">
+                            Masal çocuklar için hazırlandığından yazdığınız şey
+                            uygunluk açısından kontrol edilir.
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </StepShell>
           )}
@@ -529,10 +586,17 @@ function Summary({
           })
           .join(", ")
       : "—";
+  // Seçimleri de göster — kullanıcı kendi yazdığı cevabı kontrol edebilsin.
+  const secimler =
+    (data.themeId ? getTheme(data.themeId)?.options : undefined)
+      ?.map((o) => choiceLabel(data.themeId!, o.id, data.options[o.id]))
+      .filter(Boolean)
+      .join(" · ") || "—";
   const rows: [string, string][] = [
     ["Kahraman", data.childName || "—"],
     ["Yaş", data.age ? `${data.age}` : "—"],
     ["Tema", themeTitle ?? "—"],
+    ["Seçimleriniz", secimler],
     ["Sevdiği şey", data.favorite || "—"],
     ["Görünüm notu", data.looks || "—"],
     ["Yan karakterler", companions],

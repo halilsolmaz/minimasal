@@ -20,6 +20,7 @@ type AnalyzeRequest = {
   city?: string;
   age1?: string;
   age2?: string;
+  metYear?: string;
   fixedDetails?: string;
   nickname1?: string;
   nickname2?: string;
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
       city: body.city,
       age1: body.age1,
       age2: body.age2,
+      metYear: body.metYear,
       fixedDetails: body.fixedDetails,
       nickname1: body.nickname1,
       nickname2: body.nickname2,

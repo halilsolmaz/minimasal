@@ -142,6 +142,7 @@ export default function CheckoutPage() {
               city: couple!.city,
               age1: couple!.age1,
               age2: couple!.age2,
+              metYear: couple!.metYear,
               fixedDetails: couple!.fixedDetails,
               nickname1: couple!.nickname1,
               nickname2: couple!.nickname2,

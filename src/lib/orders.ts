@@ -4,7 +4,7 @@
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { PACKAGES, COUPLE_PACKAGES } from "./brand";
-import { getTheme } from "./themes";
+import { getTheme, isValidChoice } from "./themes";
 import {
   RELATIONSHIPS,
   PET_TYPES,
@@ -78,6 +78,7 @@ export type CoupleOrderData = {
   city?: string; // yaşadıkları şehir (coğrafya)
   age1?: string;
   age2?: string;
+  metYear?: string; // hangi yıl tanıştılar (geçmiş sahnelerde gençleştirme)
   fixedDetails?: string; // araba/ev gibi değişmeyen detaylar
   nickname1?: string;
   nickname2?: string;
@@ -324,8 +325,9 @@ function validate(input: NewOrderInput) {
   const theme = getTheme(input.themeId ?? "");
   if (!theme) throw new OrderValidationError("Geçersiz tema.");
   for (const opt of theme.options) {
-    const choice = input.options?.[opt.id];
-    if (!choice || !opt.choices.some((c) => c.id === choice)) {
+    // Seçim hazır listeden ya da kullanıcının yazdığı serbest metinden
+    // olabilir (2026-08-03). Uygunluk denetimi önizlemede yapılır.
+    if (!isValidChoice(theme.id, opt.id, input.options?.[opt.id])) {
       throw new OrderValidationError(`Tema seçimi eksik: ${opt.question}`);
     }
   }

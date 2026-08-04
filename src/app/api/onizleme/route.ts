@@ -6,7 +6,8 @@
 import { generateImage, writeStory } from "@/lib/ai";
 import { toWatermarkedPreview } from "@/lib/ai/watermark";
 import { checkTeaserLimits, saveTeaser } from "@/lib/teasers";
-import { getTheme } from "@/lib/themes";
+import { getTheme, isValidChoice, customChoicesOf } from "@/lib/themes";
+import { checkChildSafeTexts } from "@/lib/ai/safety";
 import {
   getRelation,
   MAX_COMPANIONS,
@@ -41,8 +42,7 @@ function validationError(body: PreviewRequest): string | null {
   const theme = getTheme(body.themeId);
   if (!theme) return "Geçersiz tema.";
   for (const opt of theme.options) {
-    const choice = body.options?.[opt.id];
-    if (!choice || !opt.choices.some((c) => c.id === choice))
+    if (!isValidChoice(theme.id, opt.id, body.options?.[opt.id]))
       return `Tema seçimi eksik: ${opt.question}`;
   }
   const badPhoto = (p: unknown) =>
@@ -92,6 +92,16 @@ export async function POST(request: Request) {
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   const limit = checkTeaserLimits(ip);
   if (!limit.ok) return Response.json({ error: limit.reason }, { status: 429 });
+
+  // Kullanıcının kendi yazdığı serbest metinler (tema seçimi, sevdiği şey,
+  // görünüm notu) çocuk kitabına uygun mu? Bu ~$0.001'lik kontrol GÖRSEL
+  // ÜRETİMİNDEN ÖNCE yapılır — kötü girdi $0.30'a patlamasın.
+  const safety = await checkChildSafeTexts([
+    ...customChoicesOf(body.themeId, body.options),
+    body.favorite ?? "",
+    body.looks ?? "",
+  ]);
+  if (!safety.ok) return Response.json({ error: safety.reason }, { status: 400 });
 
   try {
     const childName = body.childName.trim();

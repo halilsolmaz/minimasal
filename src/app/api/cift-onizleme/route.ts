@@ -37,6 +37,7 @@ type CouplePreviewRequest = {
   city?: string;
   age1?: string;
   age2?: string;
+  metYear?: string;
   fixedDetails?: string;
   nickname1?: string;
   nickname2?: string;
@@ -143,6 +144,7 @@ export async function POST(request: Request) {
       city: body.city,
       age1: body.age1,
       age2: body.age2,
+      metYear: body.metYear,
       fixedDetails: body.fixedDetails,
       nickname1: body.nickname1,
       nickname2: body.nickname2,
@@ -186,6 +188,7 @@ export async function POST(request: Request) {
     const cover = await generateCoupleCover(input, previewPlan.cover);
     const page = await generateCoupleScene(input, scene, {
       mood: previewPlan.sections[0]?.core?.mood,
+      youngerYears: previewPlan.sections[0]?.yearsAgo,
     });
 
     const [coverWm, pageWm] = await Promise.all([

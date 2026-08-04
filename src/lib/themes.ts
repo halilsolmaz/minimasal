@@ -260,3 +260,62 @@ export const THEMES: StoryTheme[] = [
 export function getTheme(id: string): StoryTheme | undefined {
   return THEMES.find((t) => t.id === id);
 }
+
+/* ---------- Kullanıcının kendi yazdığı seçim (2026-08-03) ---------- */
+// Kurucu kararı: hazır liste bazı çocuklara yetmiyor (kaplumbağa seven
+// çocuk ürünü kullanamıyordu). Seçim değeri ya listeden bir choice id'dir
+// ya da "custom:<metin>" biçimindedir. Metin, önizlemeden ÖNCE ucuz bir
+// LLM kontrolünden geçer (bkz. ai/safety.ts) — kötü girdi $0.30 değil
+// $0.001'e patlasın diye.
+
+export const CUSTOM_PREFIX = "custom:";
+export const MAX_CUSTOM_OPTION_CHARS = 60;
+
+export function isCustomChoice(value: string | undefined): boolean {
+  return typeof value === "string" && value.startsWith(CUSTOM_PREFIX);
+}
+
+export function customChoiceText(value: string): string {
+  return value.slice(CUSTOM_PREFIX.length).trim();
+}
+
+// Seçimin insan tarafından okunabilir etiketi (hazır seçenek ya da
+// kullanıcının kendi yazdığı metin). İstemlere bu girer.
+export function choiceLabel(
+  themeId: string,
+  optionId: string,
+  value: string | undefined
+): string {
+  if (!value) return "";
+  if (isCustomChoice(value)) return customChoiceText(value);
+  const opt = getTheme(themeId)?.options.find((o) => o.id === optionId);
+  return opt?.choices.find((c) => c.id === value)?.label ?? "";
+}
+
+// Bir seçim geçerli mi? (hazır seçenek VEYA makul uzunlukta serbest metin)
+export function isValidChoice(
+  themeId: string,
+  optionId: string,
+  value: string | undefined
+): boolean {
+  if (!value) return false;
+  if (isCustomChoice(value)) {
+    const t = customChoiceText(value);
+    return t.length >= 2 && t.length <= MAX_CUSTOM_OPTION_CHARS;
+  }
+  const opt = getTheme(themeId)?.options.find((o) => o.id === optionId);
+  return !!opt?.choices.some((c) => c.id === value);
+}
+
+// Bir siparişteki tüm serbest metin seçimleri (güvenlik kontrolü için).
+export function customChoicesOf(
+  themeId: string,
+  options: Record<string, string> | undefined
+): string[] {
+  const theme = getTheme(themeId);
+  if (!theme || !options) return [];
+  return theme.options
+    .map((o) => options[o.id])
+    .filter(isCustomChoice)
+    .map(customChoiceText);
+}

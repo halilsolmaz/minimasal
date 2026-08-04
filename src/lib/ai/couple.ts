@@ -51,6 +51,7 @@ export type CoupleInput = {
   city?: string; // yaşadıkları şehir (coğrafya bloğu)
   age1?: string;
   age2?: string;
+  metYear?: string; // hangi yıl tanıştılar (geçmiş sahnelerde gençleştirme)
   fixedDetails?: string; // araba/ev gibi değişmeyen detaylar
   nickname1?: string;
   nickname2?: string;
@@ -92,6 +93,12 @@ export type BookSection = {
     meaning: string; // Türkçe tek cümle: bu anı bu ilişki için ne anlatıyor
     mood: string; // İngilizce ruh hali (ör. "quiet gratitude, steady support")
   };
+  // Bu bölüm kaç yıl ÖNCE yaşandı (0 = bu aralar). Referans fotoğraflar
+  // bugünü gösterdiği için geçmiş bölümlerde çift o kadar GENÇ çizilir
+  // (kurucu tespiti 2026-08-03: 10 yıllık çiftin tanışma sahnesi bugünkü
+  // yaşlarıyla çiziliyordu). "hayal" bölümünde kullanılmaz — orada zaten
+  // ileriye doğru yaşlandırma var.
+  yearsAgo?: number;
   scenes: MemoryScene[];
 };
 
@@ -269,9 +276,11 @@ function settingBlock(input: CoupleInput): string {
       `architecture, streets, vehicles, signage and daily life. `
     : `Setting: unless the scene description below explicitly names another ` +
       `country, the scene happens in Turkey — Turkish architecture and daily life. `;
+  // Yaşlar BUGÜNKÜ yaşlardır — geçmiş sahnelerde ayrıca gençleştirme
+  // talimatı gider (bkz. generateCoupleScene / youngerYears).
   const ages = [input.age1, input.age2].filter((a) => a?.trim());
   if (ages.length === 2) {
-    s += `${input.partner1.name} is ${input.age1} and ${input.partner2.name} is ${input.age2} years old. `;
+    s += `Today ${input.partner1.name} is ${input.age1} and ${input.partner2.name} is ${input.age2} years old. `;
   }
   if (input.fixedDetails?.trim()) {
     s += `Consistent details that must look IDENTICAL in every scene where they appear: ${input.fixedDetails.trim()}. `;
@@ -308,6 +317,12 @@ const SEGMENT_SYSTEM_PROMPT =
   "ışığını ve ifadesini bu belirler. Neşeli bir anıya neşeli, ağır bir anıya ağırbaşlı yaz.\n" +
   "   - 'intro' (italik ara sayfa cümlesi) de bu anlamdan doğsun; genel geçer romantik " +
   "cümle yazma.\n" +
+  "0b) ZAMAN: her bölüme 'yearsAgo' yaz — o bölüm kaç yıl ÖNCE yaşandı. Sana tanışma " +
+  "yılı verildiyse tanışma bölümü için onu kullan; anılar için anlatımdaki zaman " +
+  "ifadelerinden çıkar ('geçen sonbahar' ≈ 1, 'iki yıl önce' = 2, 'geçen ay' = 0). " +
+  "Rutinler bugün yaşanıyor = 0. 'hayal' bölümüne 0 yaz (orada ileriye dönük " +
+  "yaşlandırma ayrıca yapılıyor). Bu sayı önemli: referans fotoğraflar BUGÜNÜ " +
+  "gösteriyor, geçmiş bölümlerde çift o kadar genç çizilecek.\n" +
   "1) Mekân ve olay akışı anlatımdakiyle BİREBİR aynı olmalı: kim, kimi, nerede, " +
   "nasıl gördü/yaptı — asla değiştirme, ters çevirme, uydurma.\n" +
   "   - SPESİFİK DETAY UYDURMA. Anlatımda olmayan bir eylem, nesne ya da atmosfer sıfatı " +
@@ -483,8 +498,15 @@ function coupleContext(input: CoupleInput): string {
     .join(", ");
   const ages =
     input.age1?.trim() && input.age2?.trim()
-      ? ` Yaşları: ${input.partner1.name} ${input.age1}, ${input.partner2.name} ${input.age2}.`
+      ? ` Bugünkü yaşları: ${input.partner1.name} ${input.age1}, ${input.partner2.name} ${input.age2}.`
       : "";
+  // Tanışma yılı → "yearsAgo" hesabının çıpası.
+  const met = (() => {
+    const y = Number(input.metYear);
+    if (!Number.isInteger(y) || y < 1900 || y > new Date().getFullYear()) return "";
+    const kacYil = new Date().getFullYear() - y;
+    return ` ${y} yılında tanıştılar (yaklaşık ${kacYil} yıl önce).`;
+  })();
   const fixed = input.fixedDetails?.trim()
     ? ` Değişmeyen detaylar (her sahnede aynı görünmeli): ${input.fixedDetails.trim()}.`
     : "";
@@ -509,7 +531,7 @@ function coupleContext(input: CoupleInput): string {
     : "";
   return (
     `Çift: ${input.partner1.name} (1. kişi) ve ${input.partner2.name} (2. kişi), ${input.relationship}. ` +
-    `Şehir: ${input.city?.trim() || "Türkiye"}.${ages} ${living} ${nick}` +
+    `Şehir: ${input.city?.trim() || "Türkiye"}.${ages}${met} ${living} ${nick}` +
     (pets ? ` Evcil dostları: ${pets}.` : "") +
     fixed +
     looks
@@ -557,6 +579,7 @@ const PLAN_SCHEMA =
   `{"cover": {"brief": "...", "pets": ["isim"]}, ` +
   `"sections": [{"kind": "tanisma" | "ani" | "rutin" | "hayal", ` +
   `"core": {"meaning": "Türkçe tek cümle", "mood": "İngilizce ruh hali"}, ` +
+  `"yearsAgo": kaç yıl önce yaşandı (sayı, bu aralarsa 0), ` +
   `"intro": "italik ara sayfa cümlesi (Türkçe)", ` +
   `"scenes": [{"title": "...", "sceneBrief": "...", ` +
   `"bubbles": [{"speaker": 1 | 2, "text": "...", "side": "left" | "right"}], ` +
@@ -890,7 +913,11 @@ export async function generateCoupleCover(
 export async function generateCoupleScene(
   input: CoupleInput,
   scene: MemoryScene,
-  opts: { agedYears?: number | null; mood?: string } = {}
+  opts: {
+    agedYears?: number | null;
+    youngerYears?: number | null;
+    mood?: string;
+  } = {}
 ): Promise<Buffer> {
   if (useMock()) {
     return mockRawImage(`Anı: ${scene.title}`, input.partner1.photoDatas);
@@ -906,10 +933,16 @@ export async function generateCoupleScene(
       `for speech bubbles to be added later. That area must still be FULLY PAINTED as part ` +
       `of the illustration — do NOT leave a blank, white or empty band.`
     : "";
+  // İleri (hayal) ya da GERİ (geçmiş anılar) zaman kaydırması. Fotoğraflar
+  // bugünü gösterdiği için ikisi de aynı mekanizmayla çözülüyor.
   const aging = opts.agedYears
     ? ` The couple is depicted about ${opts.agedYears} years OLDER than in the reference photos — ` +
       `age them naturally (hair, face) but keep both clearly recognizable.`
-    : "";
+    : opts.youngerYears && opts.youngerYears >= 3
+      ? ` This memory happened about ${opts.youngerYears} years ago: depict both of them ` +
+        `about ${opts.youngerYears} years YOUNGER than in the reference photos — younger ` +
+        `faces and hair, but keep both clearly recognizable as the same people.`
+      : "";
   // Ruh hali SABİT DEĞİL — bu bölümün kendi anlamından gelir (core.mood).
   // Yoksa hiç yazılmaz; sahne tarifindeki duygu kendi başına yeter.
   const mood = opts.mood?.trim()

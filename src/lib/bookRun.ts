@@ -222,6 +222,7 @@ async function runCoupleBook(
       city: c.city,
       age1: c.age1,
       age2: c.age2,
+      metYear: c.metYear,
       fixedDetails: c.fixedDetails,
       nickname1: c.nickname1,
       nickname2: c.nickname2,
@@ -326,6 +327,9 @@ async function runCoupleBook(
           log(dir, `Sahne ${sceneNo}/${totalScenes} üretiliyor (${section.kind}: ${scene.title})...`);
           const raw = await generateCoupleScene(input, scene, {
             agedYears: section.kind === "hayal" ? material.dream?.years : null,
+            // Geçmiş bölümlerde çift o kadar genç çizilir (fotoğraflar
+            // bugünü gösteriyor). "hayal" bölümünde uygulanmaz.
+            youngerYears: section.kind === "hayal" ? null : section.yearsAgo,
             // Ruh hali bu bölümün kendi anlamından gelir (sabit değil).
             mood: section.core?.mood,
           });

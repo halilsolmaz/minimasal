@@ -140,6 +140,7 @@ export default function CoupleWizardPage() {
           city: data.city,
           age1: data.age1,
           age2: data.age2,
+          metYear: data.metYear,
           fixedDetails: data.fixedDetails,
           nickname1: data.nickname1,
           nickname2: data.nickname2,
@@ -205,6 +206,7 @@ export default function CoupleWizardPage() {
           city: data.city,
           age1: data.age1,
           age2: data.age2,
+          metYear: data.metYear,
           fixedDetails: data.fixedDetails,
           nickname1: data.nickname1,
           nickname2: data.nickname2,
@@ -459,6 +461,24 @@ export default function CoupleWizardPage() {
                     placeholder="28"
                     className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
                   />
+                </label>
+                {/* Tanışma yılı: geçmiş sahnelerde çifti o günkü yaşına
+                    göre gençleştirmek için (kurucu tespiti 2026-08-03). */}
+                <label className="block">
+                  <span className="block text-sm font-bold text-ink mb-1.5">
+                    Hangi yıl tanıştınız?{" "}
+                    <span className="font-normal text-ink-soft">(ops.)</span>
+                  </span>
+                  <input
+                    type="number"
+                    value={data.metYear}
+                    onChange={(e) => update({ metYear: e.target.value })}
+                    placeholder="2015"
+                    className="w-full rounded-xl border border-ink/15 px-4 py-3 outline-none focus:border-primary focus:ring-4 focus:ring-primary-soft transition"
+                  />
+                  <span className="mt-1 block text-xs text-ink-soft">
+                    Tanışma sayfalarında ikinizi o günkü halinizle çizeriz.
+                  </span>
                 </label>
               </div>
 

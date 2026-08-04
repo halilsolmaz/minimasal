@@ -8,7 +8,7 @@
 // Hikaye metni şimdilik şablondan (mock ile aynı) — ayrı bir LLM
 // entegrasyonu ilerde eklenecek; kapak kalitesi önce geliyor.
 
-import { getTheme } from "@/lib/themes";
+import { getTheme, choiceLabel } from "@/lib/themes";
 import { getRelation } from "@/lib/characters";
 import { mockProvider } from "./mock";
 import type {
@@ -40,11 +40,9 @@ const STYLE_PROMPT =
 // Temaya + seçimlere göre kapak sahnesi kur (seçim etiketleri Türkçe,
 // model çok dilli — sorun değil).
 function sceneFor(input: GenerateImageInput): string {
-  const theme = getTheme(input.themeId);
-  const label = (optId: string) => {
-    const opt = theme?.options.find((o) => o.id === optId);
-    return opt?.choices.find((c) => c.id === input.options[optId])?.label ?? "";
-  };
+  // Seçim hazır listeden ya da kullanıcının kendi yazdığı metinden gelir.
+  const label = (optId: string) =>
+    choiceLabel(input.themeId, optId, input.options[optId]);
   switch (input.themeId) {
     case "hayvan-dostu":
       return `The child is on an adventure with a friendly ${label("hayvan")} in ${label("mekan")}.`;
@@ -302,8 +300,8 @@ function storyPrompt(input: WriteStoryInput): string {
   const theme = getTheme(input.themeId);
   const choices = (theme?.options ?? [])
     .map((opt) => {
-      const c = opt.choices.find((x) => x.id === input.options[opt.id]);
-      return c ? `${opt.question} → ${c.label}` : null;
+      const label = choiceLabel(input.themeId, opt.id, input.options[opt.id]);
+      return label ? `${opt.question} → ${label}` : null;
     })
     .filter(Boolean)
     .join("; ");

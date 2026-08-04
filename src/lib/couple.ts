@@ -115,6 +115,11 @@ export type CoupleWizardState = {
   city: string; // yaşadıkları şehir (görsellerin coğrafyası — zorunlu)
   age1: string; // yaşlar (opsiyonel; string: input kolaylığı)
   age2: string;
+  // Hangi yıl tanıştılar (opsiyonel, "2015" gibi). Referans fotoğraflar
+  // BUGÜNÜ gösteriyor; 10 yıllık bir çiftin tanışma sahnesinde ikisi de
+  // 10 yaş genç çizilmeli (kurucu tespiti 2026-08-03). Bu olmadan tanışma
+  // sahneleri bugünkü yaşlarıyla çiziliyordu.
+  metYear: string;
   // Değişmeyen detaylar: araba marka/model/renk, evin özellikleri vb.
   // Her sahne istemine sabit blok olarak gider (tutarlılık için).
   fixedDetails: string;
@@ -172,6 +177,7 @@ export const initialCoupleState: CoupleWizardState = {
   city: "",
   age1: "",
   age2: "",
+  metYear: "",
   fixedDetails: "",
   pets: [],
   nickname1: "",
