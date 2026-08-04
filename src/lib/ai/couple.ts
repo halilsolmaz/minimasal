@@ -351,6 +351,11 @@ const SEGMENT_SYSTEM_PROMPT =
   "çizilir ve anı yanlış yerde geçmiş olur. Aynı bölümdeki TÜM sahnelerde o yeri tekrar yaz.\n" +
   "8) Baloncuk her sahnede ZORUNLU DEĞİL: sadece doğal olduğu yerde 1-2 kısa Türkçe söz " +
   "(≤60 karakter, klişe değil); diğerlerinde bubbles boş dizi.\n" +
+  "   - SÖZ, SÖYLENDİĞİ SAHNEYE KONUR. Anlatımdan bir repliği alıp başka bir ana " +
+  "taşıma. GERÇEK HATA (2026-08-03 testi): kullanıcı 'asansör bozuldu, altı katı " +
+  "YÜRÜYEREK çıktık ve o her sahanlıkta \"bir dakika, bir dakika\" diye durdu' demişken " +
+  "model o sözü ASANSÖR sahnesine koydu. Replik hangi olayda geçtiyse o sahnede olmalı; " +
+  "o sahne planda yoksa baloncuğu hiç kullanma.\n" +
   "   - BALONCUK BİLGİ UYDURAMAZ. Yalnızca anlatımda GEÇEN ya da o andan doğrudan çıkan " +
   "şeyler söylenebilir. Kullanıcının söylemediği bir tercih/duygu/görüş yakıştırma. " +
   "ÖRNEK YANLIŞ: kullanıcı 'internet çekmediği için tek kayıtlı şarkıyı dinliyorduk' " +
@@ -482,8 +487,18 @@ function coupleContext(input: CoupleInput): string {
     input.looks1?.trim() ? `${input.partner1.name}: ${input.looks1.trim()}` : "",
     input.looks2?.trim() ? `${input.partner2.name}: ${input.looks2.trim()}` : "",
   ].filter(Boolean);
+  // Testte (2026-08-03) bu notlar 14 tarifin HİÇBİRİNDE kullanılmadı; ifade
+  // fazla belirsizdi. Çocuk masalındaki net kalıp buraya taşındı: modelden
+  // önce KALICI/DEĞİŞKEN kararını vermesi isteniyor.
   const looks = looksArr.length
-    ? ` Kişisel görünüm notları (kalıcı iz mi aksesuar mı ayrımı için görünüm/dağılım kuralına uy): ${looksArr.join("; ")}.`
+    ? ` MÜŞTERİNİN GÖRÜNÜM NOTLARI (görmezden GELME, müşteri özellikle yazdı): ` +
+      `${looksArr.join("; ")}. Her not için önce karar ver: KALICI mı DEĞİŞKEN mi?\n` +
+      `- KALICI (dövme, yara izi, çil, doğum lekesi, piercing/hızma, diş teli, ` +
+      `kalıcı saç modeli): o vücut bölgesinin/kişinin göründüğü HER sceneBrief'te yaz, ` +
+      `tek sahne bile atlama. Dövme yalnız o bölge görünüyorsa (kısa kollu, deniz, ` +
+      `ev içi) yazılır.\n` +
+      `- DEĞİŞKEN (gözlük, şapka, kolye, saat): sahnelere DOĞAL dağıt — bazısında ` +
+      `olsun bazısında olmasın; her kareye tekrarlama.`
     : "";
   return (
     `Çift: ${input.partner1.name} (1. kişi) ve ${input.partner2.name} (2. kişi), ${input.relationship}. ` +
@@ -545,8 +560,13 @@ const PLAN_SCHEMA =
 const COVER_RULE =
   `"cover": kitabın KAPAĞI. "brief" = İngilizce kapak tarifi (1-2 cümle): ` +
   `çiftin hikayesini özetleyen sıcak bir an — onlara özel bir mekân ya da ` +
-  `birlikteliklerini anlatan bir sahne olsun, planın herhangi bir sahnesinin ` +
-  `kopyası OLMASIN. Başlık yazısını sen tarif etme (onu biz ekliyoruz). ` +
+  `birlikteliklerini anlatan bir sahne olsun. KAPAK HİÇBİR SAHNENİN TEKRARI ` +
+  `OLAMAZ: bir sahnenin ayırt edici kurgusunu (aynı mekân + aynı duruş + aynı ` +
+  `nesne) kapağa taşıma; farklı bir an seç. Ayrıca FARKLI OLAYLARIN detaylarını ` +
+  `BİRLEŞTİRME — gerçek hata (2026-08-03 testi): tanışma gecesi ARKADAŞLARININ ` +
+  `evinin balkonunda geçerken kapak o anı ÇİFTİN KENDİ sarmaşıklı balkonunda ` +
+  `çizdirdi; iki ayrı yer birbirine karıştı. ` +
+  `Başlık yazısını sen tarif etme (onu biz ekliyoruz). ` +
   `"pets" = kapakta görünmesi DOĞAL olan evcil dostların isimleri (kapak iç ` +
   `mekân değilse kedi/kuş yazma; hiçbiri doğal değilse boş dizi).`;
 
@@ -648,6 +668,10 @@ export async function writeCouplePlan(
     `mekân/mevsim detaylarını anlatımdan AYNEN taşı), ` +
     `"bubbles" (sadece doğalsa), "pets" (bu sahnede görünen evcil dost isimleri, ` +
     `yoksa boş dizi).\n` +
+    `BALONCUK VARSA ZORUNLU: sceneBrief'in İÇİNE kimin solda kimin sağda durduğunu ` +
+    `İngilizce yaz (ör. "${input.partner1.name} on the left, ${input.partner2.name} ` +
+    `on the right") ve "side" alanını bununla AYNI yap. Yazmazsan baloncuk yanlış ` +
+    `kişinin üstüne düşer — ressam kimi nereye koyacağını senden başka bilmiyor.\n` +
     `KADRAJ: her sceneBrief'in sonunda iki-üç kelimeyle belirt ('close-up', ` +
     `'medium shot', 'wide shot') ve kitap boyunca ÇEŞİTLENDİR — her sayfa aynı ` +
     `orta plan olmasın. Abartma: sinematik açı/lens/teknik terim YOK.\n` +
@@ -730,8 +754,14 @@ const REVIEW_SYSTEM_PROMPT =
   "o sahnenin görselinde var mı? Yoksa ya sahneye o kişiyi EKLE ya da baloncuğu kaldır. " +
   "Baloncuk anlatımdaki bir sözü aktarıyorsa kritik kelimeyi DÜŞÜRME ('soğuk demleme çayı' " +
   "→ baloncukta sadece 'soğuk demleme' yazarsa okuyan kahve anlar). " +
-  "Her baloncukta 'side' var mı ve sceneBrief'teki yerleşimle TUTARLI mı? Değilse düzelt — " +
-  "yanlış taraf, sözün karşıdaki kişinin üstünde durması demek.\n" +
+  "Her baloncukta 'side' var mı VE sceneBrief'in içinde kimin solda kimin sağda olduğu " +
+  "yazıyor mu? Tarifte yerleşim yoksa EKLE (yoksa baloncuk yanlış kişinin üstüne düşer). " +
+  "Ayrıca replik, anlatımda söylendiği OLAYIN sahnesinde mi? Başka sahneye taşınmışsa " +
+  "doğru sahneye al ya da kaldır.\n" +
+  "17) GÖRÜNÜM NOTLARI KULLANILMIŞ MI? Müşteri dövme/hızma/gözlük gibi bir not verdiyse " +
+  "kalıcı olanlar ilgili bölgenin göründüğü sahnelerde geçiyor mu? Hiç geçmiyorsa EKLE.\n" +
+  "18) KAPAK bir sahnenin tekrarı mı, ya da farklı olayların detaylarını birleştirmiş mi? " +
+  "Öyleyse kapağı farklı bir ana çevir.\n" +
   "16) TEKRAR VAR MI? Planı baştan sona oku: peş peşe gelen sahneler aynı kareyi mi anlatıyor " +
   "(aynı mekân + aynı duruş + aynı kadraj)? Varsa DÜZELT — kadrajı değiştir, karede ne " +
   "olduğunu değiştir (birinde ikisi birden, diğerinde sadece eller/bir detay), mekânın başka " +

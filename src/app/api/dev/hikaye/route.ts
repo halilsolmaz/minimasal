@@ -17,6 +17,7 @@ import {
 import {
   writeCouplePlan,
   reviewCouplePlan,
+  analyzeCoupleMaterial,
   ensureEveryPetAppears,
   type CoupleInput,
   type CoupleMaterial,
@@ -77,11 +78,24 @@ export async function POST(request: Request) {
     if (body.tur === "cift") {
       const input = body.input as CoupleInput;
       const material = body.material as CoupleMaterial;
-      // Test kolaylığı: kademe dışı bir sayfa sayısı da denenebilsin.
-      const pages =
-        typeof body.pages === "number"
-          ? body.pages
-          : (COUPLE_PACKAGES.find((p) => p.id === body.packageId)?.pages ?? 10);
+      // Sayfa sayısı: elle verilmezse MALZEMENİN KENDİSİ belirler —
+      // analiz ucu (ucuz, görselsiz) kaç resmedilebilir sahne çıktığını
+      // söyler, sahne sayısı odur. Sabit kademe dayatmak modeli anıları
+      // atlamak zorunda bırakıyordu (kurucu tespiti 2026-08-03).
+      let pages: number;
+      if (typeof body.pages === "number") {
+        pages = body.pages;
+      } else if (body.packageId) {
+        pages = COUPLE_PACKAGES.find((p) => p.id === body.packageId)?.pages ?? 10;
+      } else {
+        const analiz = await analyzeCoupleMaterial(input, material);
+        const bolum =
+          1 +
+          (material.memories?.length ?? 0) +
+          (material.routines?.trim() ? 1 : 0) +
+          (material.dream?.description?.trim() ? 1 : 0);
+        pages = analiz.sceneCount + bolum;
+      }
       // Kademe = toplam iç sayfa; ara sayfalar da sayılır (bkz. bookRun).
       const sectionCount =
         1 +
