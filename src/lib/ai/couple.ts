@@ -337,6 +337,12 @@ const SEGMENT_SYSTEM_PROMPT =
   "tatlı bir anını seç. Sigara ve madde kullanımını görselleştirme; şarap/kahve serbest.\n" +
   "4) Fiziksel temas anları (ayakların değmesi, el ele, sarılma) anlatıldıysa o temas " +
   "sahnenin MERKEZİ ve odak noktası olmalı — sceneBrief'te açıkça 'the focal point is...' de.\n" +
+  "5a) LAKAP İSMİN YERİNE GEÇMEZ. sceneBrief içinde kişilerden HER ZAMAN gerçek " +
+  "isimleriyle söz et. Lakaplar yalnızca baloncuk metninde, konuşma içinde geçer. " +
+  "GERÇEK HATA (2026-08-03 testi): hayal bölümünün tarifleri 'Muti odun kırıyor, Elo " +
+  "izliyor' diye yazıldı — oysa ressama giden referans tarifi 'fotoğraflar Murat ve " +
+  "Elif'i gösteriyor' diyor; ressam 'Muti'nin kim olduğunu bilemez ve kimi çizeceğini " +
+  "şaşırır.\n" +
   "5) Lakaplar/hitaplar KRONOLOJİYE uyar. VARSAYILAN: tanışma ve flört dönemi " +
   "sahnelerinde lakap kullanılmaz (isim ya da hitapsız); lakaplar ilişkinin oturduğu " +
   "anı/rutin/hayal sahnelerinde geçer. Ama anlatım lakabın ne zaman doğduğunu söylüyorsa " +
@@ -522,12 +528,20 @@ function coupleContext(input: CoupleInput): string {
   const looks = looksArr.length
     ? ` MÜŞTERİNİN GÖRÜNÜM NOTLARI (görmezden GELME, müşteri özellikle yazdı): ` +
       `${looksArr.join("; ")}. Her not için önce karar ver: KALICI mı DEĞİŞKEN mi?\n` +
-      `- KALICI (dövme, yara izi, çil, doğum lekesi, piercing/hızma, diş teli, ` +
-      `kalıcı saç modeli): o vücut bölgesinin/kişinin göründüğü HER sceneBrief'te yaz, ` +
-      `tek sahne bile atlama. Dövme yalnız o bölge görünüyorsa (kısa kollu, deniz, ` +
-      `ev içi) yazılır.\n` +
+      `- KALICI (dövme, yara izi, çil, doğum lekesi, piercing/hızma, diş teli, saç ` +
+      `rengi/modeli): kişinin göründüğü sahnelerde yaz — AMA yalnız o özelliğin ` +
+      `GÖRÜNDÜĞÜ karelerde (dövme kol görünmüyorsa yazılmaz, kaş izi geniş planda ` +
+      `okunmaz).\n` +
       `- DEĞİŞKEN (gözlük, şapka, kolye, saat): sahnelere DOĞAL dağıt — bazısında ` +
-      `olsun bazısında olmasın; her kareye tekrarlama.`
+      `olsun bazısında olmasın. İstisna: kullanıcı "hep takar" gibi bir şey ` +
+      `söylediyse ona uy.\n` +
+      `- NASIL YAZILACAĞI ÖNEMLİ: bu özellikleri sceneBrief'in SONUNA sabit bir kalıp ` +
+      `cümle olarak ekleme ve her sahnede dört özelliği birden sayma. Sahnenin kendi ` +
+      `cümlesine DOĞAL yedir ve o karede görüneni yaz: yüze yakın planda sakal ve kaş ` +
+      `izi, ellerin göründüğü karede saat ve bilekteki dövme, geniş planda belki ` +
+      `hiçbiri. GERÇEK HATA (2026-08-03 testi): aynı kalıp cümle 16 sahnenin sonuna ` +
+      `birebir yapıştırıldı; uyuyan kişinin bileğindeki dövme bile yazıldı. Bu, her ` +
+      `kareyi aynılaştırır ve sahneye özel tarifi seyreltir.`
     : "";
   return (
     `Çift: ${input.partner1.name} (1. kişi) ve ${input.partner2.name} (2. kişi), ${input.relationship}. ` +
@@ -734,7 +748,19 @@ export async function writeCouplePlan(
 const REVIEW_SYSTEM_PROMPT =
   "Sen titiz bir yayın editörüsün. Sana bir çiftin ham anlatımı ve ondan çıkarılmış " +
   "kitap planı verilir. Planı KAYNAKLA karşılaştırıp hataları DÜZELTİLMİŞ planla " +
-  "yanıtlarsın. Kontrol listesi:\n" +
+  "yanıtlarsın.\n" +
+  "MUTLAK SINIR — DÜZELTİRKEN KAYNAĞI BOZMA: bir sahnede çelişki gördüğünde " +
+  "anlatımdaki OLGUYU değiştirerek çözme; KOMPOZİSYONU değiştirerek çöz. Anlatımda " +
+  "yazan şey (kim neredeydi, kim uyuyordu, ne yapıyordu) dokunulmazdır. " +
+  "GERÇEK HATA (2026-08-03 testi): kullanıcı 'kahvaltıyı ben hazırlarım, O HÂLÂ " +
+  "UYURKEN; uyandırmak için fincanı burnuna yaklaştırırım' demişti. Plan sahneyi " +
+  "'Murat mutfakta kahvaltı hazırlıyor + uyuyan Elif'in yüzüne fincan tutuyor' diye " +
+  "yazdı — mekân çelişkisi (biri mutfakta, biri yatakta aynı karede olamaz). Editör " +
+  "çelişkiyi doğru gördü ama Elif'i UYANDIRIP masaya oturttu ve anının özü (uyandırma " +
+  "anı) kayboldu. DOĞRUSU: sahneyi Elif'in uyuduğu yere taşımak (Murat elinde fincanla " +
+  "yatağın kenarına eğilmiş). Çelişki varsa sahneyi anlatımdaki ANA sadık kalarak " +
+  "yeniden kur, gerekiyorsa iki ayrı ana bölme yerine tek ve doğru anı seç.\n" +
+  "Kontrol listesi:\n" +
   "0) BÖLÜMÜN ÖZÜ DOĞRU OKUNMUŞ MU? Her bölümün 'core.meaning' alanı o anıda çifti " +
   "birbirine bağlayan şeyi gerçekten söylüyor mu, yoksa yüzeysel bir olay özeti mi " +
   "('hastaneye gittiler')? Yüzeyselse DÜZELT. 'core.mood' anının gerçek duygusuna uyuyor " +
@@ -788,8 +814,12 @@ const REVIEW_SYSTEM_PROMPT =
   "yazıyor mu? Tarifte yerleşim yoksa EKLE (yoksa baloncuk yanlış kişinin üstüne düşer). " +
   "Ayrıca replik, anlatımda söylendiği OLAYIN sahnesinde mi? Başka sahneye taşınmışsa " +
   "doğru sahneye al ya da kaldır.\n" +
-  "17) GÖRÜNÜM NOTLARI KULLANILMIŞ MI? Müşteri dövme/hızma/gözlük gibi bir not verdiyse " +
-  "kalıcı olanlar ilgili bölgenin göründüğü sahnelerde geçiyor mu? Hiç geçmiyorsa EKLE.\n" +
+  "17) GÖRÜNÜM NOTLARI DENGELİ Mİ? (a) Hiç kullanılmamışsa, kalıcı olanları ilgili " +
+  "bölgenin göründüğü sahnelere EKLE. (b) Tersine, aynı kalıp cümle her sahnenin " +
+  "sonuna yapıştırılmışsa SEYRELT: o karede görünmeyen özellikleri çıkar (uyuyan " +
+  "kişinin bileğindeki dövme, geniş planda okunmayan kaş izi) ve kalanları sahnenin " +
+  "kendi cümlesine yedir. İsimleri de kontrol et: sceneBrief'te lakap değil GERÇEK " +
+  "İSİM kullanılmalı.\n" +
   "18) KAPAK bir sahnenin tekrarı mı, ya da farklı olayların detaylarını birleştirmiş mi? " +
   "Öyleyse kapağı farklı bir ana çevir.\n" +
   "16) TEKRAR VAR MI? Planı baştan sona oku: peş peşe gelen sahneler aynı kareyi mi anlatıyor " +
