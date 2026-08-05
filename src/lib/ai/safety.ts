@@ -26,53 +26,79 @@ const SYSTEM_PROMPT =
   "sıkmak değil, gerçekten sakıncalı olanı elemek. " +
   "İstenen JSON'un dışına asla çıkma.";
 
-export type SafetyResult = { ok: true } | { ok: false; reason: string };
+// "durum" alanı siparişe kaydedilir; admin panelinde görünür.
+//   "yok"     → denetlenecek serbest metin yoktu
+//   "temiz"   → denetlendi, sorun görülmedi
+//   "atlandi" → kontrol ÇALIŞMADI (ağ/servis hatası), izin verildi —
+//               admin göz atmalı
+export type SafetyStatus = "yok" | "temiz" | "atlandi";
+
+export type SafetyResult =
+  | { ok: true; durum: SafetyStatus }
+  | { ok: false; reason: string };
+
+// Geçici ağ hatalarının çoğu tek tekrarda geçer; ikinci deneme
+// "cevap yok" durumunu neredeyse sıfıra indiriyor (kurucu kararı
+// 2026-08-03). Maliyeti ~$0.001, sadece ilk deneme patlarsa ödenir.
+const DENEME_SAYISI = 2;
 
 /**
  * Serbest metin girdilerini denetler.
  * Liste boşsa ya da mock sağlayıcı kullanılıyorsa çağrı yapılmaz.
  *
- * HATA DURUMU: kontrol çalışmazsa (ağ hatası, bozuk JSON) İZİN VERİLİR.
- * Gerekçe: masum bir müşteriyi geçici bir arızada engellemek, ikinci
- * savunma hattı (hikaye istemindeki içerik kuralları) zaten dururken
- * daha büyük zarar. Aksilik loglanır.
+ * HATA DURUMU: iki deneme de başarısız olursa İZİN VERİLİR ama sonuç
+ * "atlandi" olarak işaretlenir. Gerekçe: masum bir müşteriyi geçici bir
+ * arızada engellemek, ikinci savunma hattı (hikaye istemindeki içerik
+ * kuralları) zaten dururken daha büyük zarar. İşaret sayesinde bu
+ * siparişler admin panelinde uyarıyla görünür.
  */
 export async function checkChildSafeTexts(
   texts: string[]
 ): Promise<SafetyResult> {
   const list = texts.map((t) => t.trim()).filter((t) => t.length > 0);
-  if (list.length === 0) return { ok: true };
+  if (list.length === 0) return { ok: true, durum: "yok" };
   if (process.env.AI_PROVIDER === "mock" || !process.env.FAL_KEY) {
-    return { ok: true };
+    return { ok: true, durum: "yok" };
   }
 
-  try {
-    const output = await falRawLlm(
-      SYSTEM_PROMPT,
-      `İfadeler:\n${list.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\n` +
-        `SADECE şu JSON'u döndür: {"uygun": true | false, ` +
-        `"sorunlu": ["uygun olmayan ifade"], "sebep": "kısa Türkçe açıklama"}`
-    );
-    const parsed = extractJson<{
-      uygun?: boolean;
-      sorunlu?: string[];
-      sebep?: string;
-    }>(output);
+  const prompt =
+    `İfadeler:\n${list.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\n` +
+    `SADECE şu JSON'u döndür: {"uygun": true | false, ` +
+    `"sorunlu": ["uygun olmayan ifade"], "sebep": "kısa Türkçe açıklama"}`;
 
-    if (parsed.uygun === false) {
-      const hangi = parsed.sorunlu?.filter(Boolean).join(", ");
-      return {
-        ok: false,
-        reason:
-          (hangi ? `"${hangi}" ` : "Yazdığınız ifade ") +
-          "çocuk masalı için uygun değil" +
-          (parsed.sebep ? ` — ${parsed.sebep}` : "") +
-          ". Lütfen başka bir şey deneyin.",
-      };
+  let sonHata: unknown = null;
+  for (let deneme = 1; deneme <= DENEME_SAYISI; deneme++) {
+    try {
+      const output = await falRawLlm(SYSTEM_PROMPT, prompt);
+      const parsed = extractJson<{
+        uygun?: boolean;
+        sorunlu?: string[];
+        sebep?: string;
+      }>(output);
+
+      if (parsed.uygun === false) {
+        const hangi = parsed.sorunlu?.filter(Boolean).join(", ");
+        return {
+          ok: false,
+          reason:
+            (hangi ? `"${hangi}" ` : "Yazdığınız ifade ") +
+            "çocuk masalı için uygun değil" +
+            (parsed.sebep ? ` — ${parsed.sebep}` : "") +
+            ". Lütfen başka bir şey deneyin.",
+        };
+      }
+      return { ok: true, durum: "temiz" };
+    } catch (err) {
+      sonHata = err;
+      if (deneme < DENEME_SAYISI) {
+        console.warn(`İçerik kontrolü ${deneme}. denemede hata, tekrar deneniyor:`, err);
+      }
     }
-    return { ok: true };
-  } catch (err) {
-    console.warn("İçerik kontrolü çalışmadı, izin verildi:", err);
-    return { ok: true };
   }
+
+  console.warn(
+    `İçerik kontrolü ${DENEME_SAYISI} denemede de çalışmadı, izin verildi (işaretlendi):`,
+    sonHata
+  );
+  return { ok: true, durum: "atlandi" };
 }

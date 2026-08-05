@@ -4,7 +4,8 @@
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { PACKAGES, COUPLE_PACKAGES } from "./brand";
-import { getTheme, isValidChoice } from "./themes";
+import { getTheme, isValidChoice, customChoicesOf } from "./themes";
+import { getTeaser } from "./teasers";
 import {
   RELATIONSHIPS,
   PET_TYPES,
@@ -141,6 +142,9 @@ export type Order = {
   photoDatas: string[]; // çocuğun fotoğrafları (1-3)
   companions: OrderCompanion[];
   teaserId: string | null;
+  // İçerik denetimi: null | "temiz" | "atlandi" | "onizlemesiz".
+  // Son ikisi admin panelinde uyarı olarak gösterilir.
+  safetyNote: string | null;
   packageId: string;
   price: number;
   customerName: string;
@@ -390,17 +394,36 @@ function validateCustomer(input: NewOrderInput) {
   return customer;
 }
 
+// Siparişteki serbest metinler denetlendi mi? Denetim önizlemede yapılır
+// ve sonucu teaser kaydında durur; buradan devralınır (2026-08-03).
+// Önizlemeden geçmeyen sipariş hiç denetlenmemiştir → "onizlemesiz".
+// Serbest metin yoksa denetlenecek bir şey de yok → null.
+function safetyNoteFor(input: NewOrderInput): string | null {
+  if (input.product === "cift") return null; // çift kitabında serbest seçim yok
+  const serbest = [
+    ...customChoicesOf(input.themeId ?? "", input.options),
+    input.favorite ?? "",
+    input.looks ?? "",
+  ].filter((t) => t.trim().length > 0);
+  if (serbest.length === 0) return null;
+
+  const teaser = input.teaserId ? getTeaser(input.teaserId) : null;
+  if (!teaser) return "onizlemesiz";
+  return teaser.safety === "atlandi" ? "atlandi" : "temiz";
+}
+
 export function createOrder(input: NewOrderInput): Order {
   const { product, childName, pkg, customer } = validate(input);
   const id = randomUUID();
   const isCouple = product === "cift";
+  const safetyNote = safetyNoteFor(input);
 
   db.prepare(
     `INSERT INTO orders (
       id, product, child_name, age, gender, theme_id, options_json, favorite, looks,
-      photo_data, photos_json, companions_json, couple_json, teaser_id,
+      photo_data, photos_json, companions_json, couple_json, teaser_id, safety_note,
       package_id, price, customer_name, email, phone, address, district, city, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     product,
@@ -416,6 +439,7 @@ export function createOrder(input: NewOrderInput): Order {
     !isCouple && input.companions?.length ? JSON.stringify(input.companions) : null,
     isCouple ? JSON.stringify(input.couple) : null,
     input.teaserId || null,
+    safetyNote,
     pkg.id,
     pkg.price,
     customer.name,
@@ -447,6 +471,7 @@ type OrderRow = {
   photos_json: string | null;
   companions_json: string | null;
   teaser_id: string | null;
+  safety_note: string | null;
   package_id: string;
   price: number;
   customer_name: string;
@@ -548,6 +573,7 @@ export function getOrder(id: string): Order | null {
       c.photoDatas?.length ? c : { ...c, photoDatas: c.photoData ? [c.photoData] : [] }
     ),
     teaserId: row.teaser_id,
+    safetyNote: row.safety_note,
     packageId: row.package_id,
     price: row.price,
     customerName: row.customer_name,

@@ -183,6 +183,19 @@ export default async function AdminOrderPage({
                     <Row key={c.question} label={c.question} value={c.answer} />
                   ))}
                 </dl>
+                {/* Serbest metin girildi ama içerik denetimi çalışmadı ya
+                    da hiç yapılmadı — basmadan önce göz atılmalı. */}
+                {(order.safetyNote === "atlandi" ||
+                  order.safetyNote === "onizlemesiz") && (
+                  <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+                    ⚠️ Bu siparişte müşterinin kendi yazdığı metinler var ve
+                    içerik denetimi{" "}
+                    {order.safetyNote === "atlandi"
+                      ? "çalışmadı (servis hatası)"
+                      : "hiç yapılmadı (önizlemeden geçmemiş)"}
+                    . Basmadan önce yukarıdaki alanları gözden geçirin.
+                  </p>
+                )}
               </>
             )}
 

@@ -61,12 +61,13 @@ export function saveTeaser(params: {
   scene1: TeaserScene; // 1. sahne metni + görsel tarifi
   coverRaw: string; // HAM kapak (data URL) — siparişte yeniden kullanılır
   page1Raw: string; // HAM 1. sahne görseli — siparişte yeniden kullanılır
+  safety?: string; // içerik denetimi sonucu: "yok" | "temiz" | "atlandi"
 }): string {
   const id = randomUUID();
   db.prepare(
     `INSERT INTO teasers (id, ip, child_name, theme_id, title, provider,
-                          image_data, scene1_json, cover_raw, page1_raw)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                          image_data, scene1_json, cover_raw, page1_raw, safety)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
     params.ip,
@@ -77,7 +78,8 @@ export function saveTeaser(params: {
     params.imageData,
     JSON.stringify(params.scene1),
     params.coverRaw,
-    params.page1Raw
+    params.page1Raw,
+    params.safety ?? null
   );
   return id;
 }
@@ -88,12 +90,13 @@ export type StoredTeaser = {
   scene1: TeaserScene | null;
   coverRaw: string | null;
   page1Raw: string | null;
+  safety: string | null;
 };
 
 export function getTeaser(id: string): StoredTeaser | null {
   const row = db
     .prepare(
-      "SELECT id, title, scene1_json, cover_raw, page1_raw FROM teasers WHERE id = ?"
+      "SELECT id, title, scene1_json, cover_raw, page1_raw, safety FROM teasers WHERE id = ?"
     )
     .get(id) as
     | {
@@ -102,6 +105,7 @@ export function getTeaser(id: string): StoredTeaser | null {
         scene1_json: string | null;
         cover_raw: string | null;
         page1_raw: string | null;
+        safety: string | null;
       }
     | undefined;
   if (!row) return null;
@@ -111,5 +115,6 @@ export function getTeaser(id: string): StoredTeaser | null {
     scene1: row.scene1_json ? JSON.parse(row.scene1_json) : null,
     coverRaw: row.cover_raw,
     page1Raw: row.page1_raw,
+    safety: row.safety,
   };
 }

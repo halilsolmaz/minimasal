@@ -65,6 +65,15 @@ function createDb(): Database.Database {
     // Ürün hattı (2026-07-19): 'cocuk' (masal kitabı) | 'cift' (anı kitabı).
     db.exec("ALTER TABLE orders ADD COLUMN product TEXT NOT NULL DEFAULT 'cocuk'");
   }
+  if (!orderCols.includes("safety_note")) {
+    // Siparişteki serbest metinler denetlendi mi (2026-08-03):
+    //   "temiz"       → denetlendi, sorun yok
+    //   "atlandi"     → kontrol servisi çalışmadı, izin verildi
+    //   "onizlemesiz" → sipariş önizlemeden geçmemiş, hiç denetlenmemiş
+    //   null          → denetlenecek serbest metin yok
+    // Son ikisi admin panelinde uyarı olarak gösterilir.
+    db.exec("ALTER TABLE orders ADD COLUMN safety_note TEXT");
+  }
   if (!orderCols.includes("looks")) {
     // Çocuğun görünüm/kıyafet notu (2026-08-03, kurucu kararı): fotoğrafta
     // görünmeyen ya da özellikle istenen detay ("gözlüklü", "her sahnede
@@ -104,6 +113,12 @@ function createDb(): Database.Database {
   }
   if (!teaserCols.includes("page1_raw")) {
     db.exec("ALTER TABLE teasers ADD COLUMN page1_raw TEXT");
+  }
+  if (!teaserCols.includes("safety")) {
+    // İçerik denetiminin sonucu (2026-08-03): "yok" | "temiz" | "atlandi".
+    // "atlandi" = kontrol servisi cevap vermedi, izin verildi — sipariş
+    // bu önizlemeden gelirse admin panelinde uyarı çıkar.
+    db.exec("ALTER TABLE teasers ADD COLUMN safety TEXT");
   }
   return db;
 }

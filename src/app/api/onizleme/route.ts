@@ -152,6 +152,9 @@ export async function POST(request: Request) {
       scene1,
       coverRaw: `data:image/jpeg;base64,${cover.image.toString("base64")}`,
       page1Raw: `data:image/jpeg;base64,${page1.image.toString("base64")}`,
+      // İçerik denetiminin sonucu siparişe taşınsın: "atlandi" ise
+      // admin panelinde uyarı çıkar.
+      safety: safety.durum,
     });
 
     return Response.json({
