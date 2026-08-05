@@ -323,6 +323,12 @@ const SEGMENT_SYSTEM_PROMPT =
   "Rutinler bugün yaşanıyor = 0. 'hayal' bölümüne 0 yaz (orada ileriye dönük " +
   "yaşlandırma ayrıca yapılıyor). Bu sayı önemli: referans fotoğraflar BUGÜNÜ " +
   "gösteriyor, geçmiş bölümlerde çift o kadar genç çizilecek.\n" +
+  "0c) HER SAHNEDE İNSAN VAR (kurucu kararı 2026-08-03, istisnasız). Bu bir ÇİFT " +
+  "kitabı; hiçbir sayfa yalnız nesne/mekân resmi olamaz. Her sceneBrief'te en az " +
+  "biri, tercihen İKİSİ birden görünür olmalı. GERÇEK HATA: 'masada bir kahve " +
+  "fincanı, altında bir not, oda sessiz' diye insan olmayan bir sahne yazıldı — " +
+  "anlatım olarak güzel ama müşteri kendi kitabında kendini görmek istiyor. " +
+  "DOĞRUSU: o notu okuyan/bırakan kişiyi kareye al.\n" +
   "1) Mekân ve olay akışı anlatımdakiyle BİREBİR aynı olmalı: kim, kimi, nerede, " +
   "nasıl gördü/yaptı — asla değiştirme, ters çevirme, uydurma.\n" +
   "   - SPESİFİK DETAY UYDURMA. Anlatımda olmayan bir eylem, nesne ya da atmosfer sıfatı " +
@@ -814,6 +820,9 @@ const REVIEW_SYSTEM_PROMPT =
   "yazıyor mu? Tarifte yerleşim yoksa EKLE (yoksa baloncuk yanlış kişinin üstüne düşer). " +
   "Ayrıca replik, anlatımda söylendiği OLAYIN sahnesinde mi? Başka sahneye taşınmışsa " +
   "doğru sahneye al ya da kaldır.\n" +
+  "16b) İNSANSIZ SAHNE VAR MI? Yalnız nesne/mekân anlatan bir sceneBrief varsa " +
+  "DÜZELT: o ana ait kişiyi (tercihen ikisini) kareye al. Çift kitabında insansız " +
+  "sayfa olamaz.\n" +
   "17) GÖRÜNÜM NOTLARI DENGELİ Mİ? (a) Hiç kullanılmamışsa, kalıcı olanları ilgili " +
   "bölgenin göründüğü sahnelere EKLE. (b) Tersine, aynı kalıp cümle her sahnenin " +
   "sonuna yapıştırılmışsa SEYRELT: o karede görünmeyen özellikleri çıkar (uyuyan " +
@@ -979,11 +988,28 @@ export async function generateCoupleScene(
     ? ` Overall mood of this chapter: ${opts.mood.trim()} — let the light, colours and ` +
       `expressions carry it honestly; do not force cheerfulness.`
     : "";
+  // İNSANSIZ SAYFA OLMAZ (kurucu kararı 2026-08-03). Plan LLM'i bazen
+  // yalnız nesne anlatan bir sahne yazıyor ("masada bir fincan, altında
+  // bir not") — anlatım olarak güzel ama müşteri kendi kitabında kendini
+  // görmek ister. İstem kuralı birinci hat; burası LLM'e güvenmeyen kat.
+  const namePattern = new RegExp(
+    `\\b(${[input.partner1.name, input.partner2.name]
+      .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+      .join("|")})\\b`,
+    "i"
+  );
+  const presence = namePattern.test(scene.sceneBrief)
+    ? ""
+    : ` IMPORTANT: ${input.partner1.name} and ${input.partner2.name} must both be ` +
+      `present and clearly visible in this scene — this page must not be an empty ` +
+      `still life of objects.`;
+
   const prompt =
     `Romantic memory book INTERIOR full-page illustration. ${COUPLE_STYLE}. ` +
     description +
     settingBlock(input) +
     scene.sceneBrief +
+    presence +
     mood +
     aging +
     bubbleSpace +

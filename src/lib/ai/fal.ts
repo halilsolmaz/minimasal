@@ -162,10 +162,19 @@ function coverPrompt(input: GenerateImageInput, refDescription: string): string 
 // İç sayfa görseli: metni biz basıyoruz, görselde yazı OLMAMALI.
 // Sahne içeriği hikaye yazarının imageBrief'inden gelir.
 function pagePrompt(input: GenerateImageInput, refDescription: string): string {
+  const brief = input.sceneBrief?.trim() || sceneFor(input);
+  // KAHRAMANSIZ SAYFA OLMAZ (kurucu kararı 2026-08-03): çocuk kendi
+  // kitabının her sayfasında kendini görmeli. İstem kuralı birinci hat;
+  // burası LLM'e güvenmeyen kat.
+  const presence = /\b(child|girl|boy|hero|she|he)\b/i.test(brief)
+    ? ""
+    : ` IMPORTANT: the child must be present and clearly visible in this scene — ` +
+      `this page must not be a landscape or an object study without the hero.`;
   return (
     `Children's picture book INTERIOR full-page illustration. ${STYLE_PROMPT}. ` +
     refDescription +
-    (input.sceneBrief?.trim() || sceneFor(input)) +
+    brief +
+    presence +
     ` Absolutely no text, no words, no letters in the image. ` +
     `Portrait orientation, no watermarks.`
   );
@@ -353,7 +362,9 @@ function storyPrompt(input: WriteStoryInput): string {
   const fieldRules =
     `- "pageText": sayfaya basılacak masal metni (yukarıdaki yaş kuralına uygun cümle sayısı)\n` +
     `- "imageBrief": o sahnenin İngilizce görsel tarifi. Bu tarif sayfadaki resmin ` +
-    `TEK kaynağı — kısa tutma, 2-3 cümle yaz ve şunları içersin: çocuk ne yapıyor, ` +
+    `TEK kaynağı. ÇOCUK HER SAHNEDE KAREDE OLMALI — istisnasız; hiçbir sayfa ` +
+    `kahramansız manzara ya da nesne resmi olamaz (çocuk kendi kitabının her ` +
+    `sayfasında kendini görmeli). Kısa tutma, 2-3 cümle yaz ve şunları içersin: çocuk ne yapıyor, ` +
     `mekân ve o mekânın somut detayları, günün hangi saati/ışık, sahnenin duygusu, ` +
     `sonda kadraj. 'the child' de, isim yazma` +
     companionField;
