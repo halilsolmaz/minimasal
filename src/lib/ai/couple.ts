@@ -949,6 +949,51 @@ export async function generateCoupleCover(
   return falRawImage(prompt, refs);
 }
 
+// Baloncuk SUNUCUDA görselin üst-sol ya da üst-sağ köşesine basılıyor.
+// Konuşanın karede hangi tarafta duracağına ise GÖRSEL MODELİ karar veriyor
+// — kimse ona sormazsa söz karşıdakinin üstünde kalır (2026-07-20 demosu,
+// 14-ani.jpg). Plan LLM'ine "yerleşimi tarife yaz" kuralı verildi ama
+// kararsız çalışıyor (bir turda 3/3, sonrakinde 1/3). Burası o boşluğu
+// kapatan kat: tarif konum söylemiyorsa biz söylüyoruz.
+function bubblePlacement(input: CoupleInput, scene: MemoryScene): string {
+  const bs = (scene.bubbles ?? []).filter(
+    (b) => typeof b?.text === "string" && b.text.trim().length > 0
+  );
+  if (bs.length === 0) return "";
+  // Tarif zaten yerleşim veriyorsa dokunma — plan LLM'i işini yapmış.
+  if (/\bon the (left|right)\b|\b(left|right) side\b/i.test(scene.sceneBrief)) {
+    return "";
+  }
+
+  const isim = (s: 1 | 2) => (s === 1 ? input.partner1.name : input.partner2.name);
+  const yerler = new Map<string, string>();
+  for (const b of bs) {
+    const side = b.side ?? (b.speaker === 1 ? "left" : "right");
+    const ad = isim(b.speaker);
+    if (!yerler.has(ad)) yerler.set(ad, side);
+  }
+
+  const parcalar = [...yerler].map(([ad, s]) => `${ad} on the ${s} side`);
+  // Konuşmayan partneri ancak sahnede GERÇEKTEN varsa karşı tarafa koy —
+  // yoksa olmayan birini kareye sokmuş oluruz.
+  if (yerler.size === 1) {
+    const [ad, s] = [...yerler][0];
+    const oteki =
+      ad === input.partner1.name ? input.partner2.name : input.partner1.name;
+    const otekiVar = new RegExp(
+      `\\b${oteki.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+      "i"
+    ).test(scene.sceneBrief);
+    if (otekiVar) {
+      parcalar.push(`${oteki} on the ${s === "left" ? "right" : "left"} side`);
+    }
+  }
+  return (
+    ` Composition: place ${parcalar.join(" and ")} of the frame ` +
+    `(speech bubbles will be added over the speaker's side afterwards).`
+  );
+}
+
 export async function generateCoupleScene(
   input: CoupleInput,
   scene: MemoryScene,
@@ -1010,6 +1055,7 @@ export async function generateCoupleScene(
     settingBlock(input) +
     scene.sceneBrief +
     presence +
+    bubblePlacement(input, scene) +
     mood +
     aging +
     bubbleSpace +
